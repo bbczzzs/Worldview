@@ -417,15 +417,16 @@ export default function TacticalGlobe({
             FLIGHTS — ALL planes, GPU-rendered
             ═══════════════════════════════════════ */}
                 <Source id="flights" type="geojson" data={flightsGeo}>
-                    {/* Glow circle behind each plane */}
+                    {/* Glow circle — only visible when zoomed in (saves GPU at global view) */}
                     <Layer
                         id="flight-glow"
                         type="circle"
+                        minzoom={4}
                         paint={{
-                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 5, 5, 8, 10, 12],
+                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 6, 12, 10],
                             'circle-color': '#FFB800',
-                            'circle-opacity': 0.15,
-                            'circle-blur': 1,
+                            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.05, 6, 0.1, 10, 0.15],
+                            'circle-blur': 0.8,
                         }}
                     />
                     {/* Airplane icons */}
