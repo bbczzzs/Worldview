@@ -473,6 +473,31 @@ export default function TacticalGlobe({
                 </Source>
 
                 {/* ═══════════════════════════════════════
+            STREET TRAFFIC — TomTom real-time flow tiles
+            ═══════════════════════════════════════ */}
+                {layers.traffic && (
+                    <Source
+                        id="traffic-tiles"
+                        type="raster"
+                        tiles={[
+                            `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${import.meta.env.VITE_TOMTOM_KEY}&tileSize=256`
+                        ]}
+                        tileSize={256}
+                        minzoom={10}
+                        maxzoom={18}
+                    >
+                        <Layer
+                            id="traffic-flow"
+                            type="raster"
+                            minzoom={10}
+                            paint={{
+                                'raster-opacity': 0.75,
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {/* ═══════════════════════════════════════
             SATELLITES — with glow/pulse effect
             ═══════════════════════════════════════ */}
                 <Source id="satellites" type="geojson" data={satsGeo}>

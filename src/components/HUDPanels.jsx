@@ -82,7 +82,7 @@ function CollapsiblePanel({ title, defaultOpen = true, children }) {
 export function DataLayersPanel({ layers, onToggle, stats }) {
     const [toast, setToast] = useState(null);
 
-    const COMING_SOON = new Set(['earthquakes', 'traffic', 'weather']);
+    const COMING_SOON = new Set(['earthquakes', 'weather']);
 
     const handleToggle = (key) => {
         if (COMING_SOON.has(key)) {
@@ -119,8 +119,8 @@ export function DataLayersPanel({ layers, onToggle, stats }) {
             key: 'traffic',
             name: 'Street Traffic',
             icon: <TrafficIcon />,
-            source: 'OpenStreetMap',
-            count: '—',
+            source: 'TomTom • live',
+            count: 'Z10+',
         },
         {
             key: 'weather',
