@@ -158,7 +158,7 @@ export default function TacticalGlobe({
         }
 
         fetchSnapshot();
-        const iv = setInterval(fetchSnapshot, 180000); // 3min — Aviation Edge (30K calls/month budget)
+        const iv = setInterval(fetchSnapshot, 90000); // 90s — Aviation Edge
         return () => { cancelled = true; clearInterval(iv); };
     }, [onDataUpdate]);
 
