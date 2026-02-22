@@ -44,8 +44,8 @@ const AIRCRAFT_SVGS = {
     jet: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="%23FFCC00"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
     // Regional / turboprop (smaller, lighter)
     regional: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="%23FFB800"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
-    // Helicopter (rotor shape)
-    helicopter: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="%2300F2FF"><path d="M5 7h14v2H5V7zm3 4h2v6h4v-6h2l-1-2H9l-1 2zm3-9h2v4h-2V2zm-6 5l1.4 1.4L5 9.8l-1.4-1.4L5 7zm14 0l-1.4 1.4-1.4-1.4L19 7z"/><circle cx="12" cy="9" r="2"/></svg>`,
+    // Helicopter (proper silhouette — body + rotor + tail)
+    helicopter: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="%2300F2FF"><path d="M3 11h1V9h5V7H4V6h7v1h2V6h7v1h-5v2h5v2h1v1h-7.5l-.5 3h2l1 2H7l1-2h2l-.5-3H3v-1zm9-4a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/><rect x="11" y="2" width="2" height="5" rx="1" fill="%2300F2FF"/><rect x="4" y="3.5" width="16" height="1.5" rx=".75" fill="%2300F2FF" opacity=".5"/></svg>`,
     // Light / GA (tiny, dimmer)
     light: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="%23FF9900"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
 };
