@@ -2,7 +2,8 @@ import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import MapGL, { Source, Layer, Popup } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
-    fetchLiveFlights, fetchSatellites, getCCTVLocations, getAirports, lookupAirport,
+    fetchLiveFlights, fetchSatellites, fetchEarthquakes, fetchWeatherRadarTimestamp,
+    getCCTVLocations, getAirports, lookupAirport,
     generateFallbackFlights, generateFallbackSatellites
 } from '../services/api';
 
@@ -67,6 +68,8 @@ export default function TacticalGlobe({
     const [flights, setFlights] = useState([]);
     const [satellites, setSatellites] = useState([]);
     const [cctvs, setCctvs] = useState([]);
+    const [earthquakes, setEarthquakes] = useState([]);
+    const [weatherRadarPath, setWeatherRadarPath] = useState(null);
     const [vehicles, setVehicles] = useState([]);
     const [currentZoom, setCurrentZoom] = useState(1.8);
     const [dataStatus, setDataStatus] = useState({ flights: 'loading', satellites: 'loading' });
@@ -215,6 +218,35 @@ export default function TacticalGlobe({
     }, [onDataUpdate]);
 
     useEffect(() => { setCctvs(getCCTVLocations()); }, []);
+
+    // ──── EARTHQUAKES (USGS) ────
+    useEffect(() => {
+        if (!layers.earthquakes) { setEarthquakes([]); return; }
+        let cancelled = false;
+        async function load() {
+            const data = await fetchEarthquakes();
+            if (!cancelled && data) {
+                setEarthquakes(data);
+                if (onDataUpdate) onDataUpdate('earthquakes', data.length);
+            }
+        }
+        load();
+        const iv = setInterval(load, 300000); // 5 min
+        return () => { cancelled = true; clearInterval(iv); };
+    }, [layers.earthquakes, onDataUpdate]);
+
+    // ──── WEATHER RADAR (RainViewer) ────
+    useEffect(() => {
+        if (!layers.weather) { setWeatherRadarPath(null); return; }
+        let cancelled = false;
+        async function load() {
+            const path = await fetchWeatherRadarTimestamp();
+            if (!cancelled && path) setWeatherRadarPath(path);
+        }
+        load();
+        const iv = setInterval(load, 600000); // 10 min
+        return () => { cancelled = true; clearInterval(iv); };
+    }, [layers.weather]);
 
     // ──── ZOOM TRACKING ────
     useEffect(() => {
@@ -480,6 +512,22 @@ export default function TacticalGlobe({
         })),
     }), [vehicles]);
 
+    // Earthquakes GeoJSON
+    const quakesGeo = useMemo(() => ({
+        type: 'FeatureCollection',
+        features: earthquakes.map(q => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [q.lng, q.lat] },
+            properties: {
+                id: q.id,
+                mag: q.magnitude,
+                depth: q.depth,
+                place: q.place,
+                time: q.time,
+            },
+        })),
+    }), [earthquakes]);
+
     return (
         <div className="globe-container">
             <MapGL
@@ -624,6 +672,85 @@ export default function TacticalGlobe({
                                 'text-color': 'rgba(0, 242, 255, 0.8)',
                                 'text-halo-color': 'rgba(0, 0, 0, 0.9)',
                                 'text-halo-width': 1,
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {/* ═══════════════════════════════════════
+            EARTHQUAKES — USGS magnitude-scaled circles
+            ═══════════════════════════════════════ */}
+                {layers.earthquakes && earthquakes.length > 0 && (
+                    <Source id="earthquakes" type="geojson" data={quakesGeo}>
+                        {/* Outer pulse ring — scaled by magnitude */}
+                        <Layer
+                            id="quake-pulse"
+                            type="circle"
+                            paint={{
+                                'circle-radius': ['interpolate', ['linear'], ['get', 'mag'],
+                                    1, 6, 3, 12, 5, 22, 7, 40, 9, 60
+                                ],
+                                'circle-color': ['interpolate', ['linear'], ['get', 'mag'],
+                                    1, '#ff9500', 3, '#ff5500', 5, '#ff2200', 7, '#ff0000'
+                                ],
+                                'circle-opacity': 0.12,
+                                'circle-blur': 0.8,
+                            }}
+                        />
+                        {/* Core dot */}
+                        <Layer
+                            id="quake-core"
+                            type="circle"
+                            paint={{
+                                'circle-radius': ['interpolate', ['linear'], ['get', 'mag'],
+                                    1, 3, 3, 5, 5, 8, 7, 12
+                                ],
+                                'circle-color': ['interpolate', ['linear'], ['get', 'mag'],
+                                    1, '#ffaa00', 3, '#ff6600', 5, '#ff2200', 7, '#ff0000'
+                                ],
+                                'circle-opacity': 0.85,
+                                'circle-stroke-width': 1,
+                                'circle-stroke-color': 'rgba(255, 100, 0, 0.4)',
+                            }}
+                        />
+                        {/* Magnitude labels */}
+                        <Layer
+                            id="quake-labels"
+                            type="symbol"
+                            layout={{
+                                'text-field': ['concat', 'M', ['to-string', ['get', 'mag']]],
+                                'text-size': 9,
+                                'text-offset': [0, -1.5],
+                                'text-anchor': 'bottom',
+                                'text-font': ['Open Sans Regular'],
+                                'text-allow-overlap': false,
+                            }}
+                            paint={{
+                                'text-color': '#ff6600',
+                                'text-halo-color': 'rgba(0, 0, 0, 0.9)',
+                                'text-halo-width': 1,
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {/* ═══════════════════════════════════════
+            WEATHER RADAR — RainViewer precipitation overlay
+            ═══════════════════════════════════════ */}
+                {layers.weather && weatherRadarPath && (
+                    <Source
+                        id="weather-radar"
+                        type="raster"
+                        tiles={[
+                            `https://tilecache.rainviewer.com${weatherRadarPath}/256/{z}/{x}/{y}/2/1_1.png`
+                        ]}
+                        tileSize={256}
+                    >
+                        <Layer
+                            id="weather-radar-layer"
+                            type="raster"
+                            paint={{
+                                'raster-opacity': 0.6,
                             }}
                         />
                     </Source>

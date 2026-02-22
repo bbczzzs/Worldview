@@ -82,7 +82,7 @@ function CollapsiblePanel({ title, defaultOpen = true, children }) {
 export function DataLayersPanel({ layers, onToggle, stats }) {
     const [toast, setToast] = useState(null);
 
-    const COMING_SOON = new Set(['earthquakes', 'weather']);
+    const COMING_SOON = new Set([]);
 
     const handleToggle = (key) => {
         if (COMING_SOON.has(key)) {
@@ -105,8 +105,8 @@ export function DataLayersPanel({ layers, onToggle, stats }) {
             key: 'earthquakes',
             name: 'Earthquakes (24h)',
             icon: <EarthquakeIcon />,
-            source: 'USGS',
-            count: '—',
+            source: 'USGS • live',
+            count: stats.earthquakes || '...',
         },
         {
             key: 'satellites',
@@ -126,8 +126,8 @@ export function DataLayersPanel({ layers, onToggle, stats }) {
             key: 'weather',
             name: 'Weather Radar',
             icon: <WeatherIcon />,
-            source: 'NOAA NEXRAD',
-            count: '—',
+            source: 'RainViewer • live',
+            count: 'GLOBAL',
         },
         {
             key: 'cctv',

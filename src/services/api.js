@@ -190,6 +190,67 @@ export async function fetchLiveFlights() {
     }
 }
 
+// ══════════════════════════════════════════════════════
+//  EARTHQUAKES — USGS GeoJSON Feed (free, no key)
+// ══════════════════════════════════════════════════════
+
+export async function fetchEarthquakes() {
+    try {
+        const res = await fetch(
+            'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+            { signal: AbortSignal.timeout(15000) }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data.features) return null;
+
+        const quakes = data.features.map(f => {
+            const [lng, lat, depthKm] = f.geometry.coordinates;
+            const p = f.properties;
+            return {
+                id: f.id,
+                lat,
+                lng,
+                magnitude: p.mag || 0,
+                depth: depthKm || 0,
+                place: p.place || 'Unknown',
+                time: p.time,
+                type: p.type || 'earthquake',
+                tsunami: p.tsunami || 0,
+            };
+        }).filter(q => q.magnitude >= 1); // Only show mag 1+
+
+        console.log(`[WORLDVIEW] ✅ ${quakes.length} earthquakes from USGS`);
+        return quakes;
+    } catch (err) {
+        console.error('[WORLDVIEW] USGS fetch error:', err);
+        return null;
+    }
+}
+
+// ══════════════════════════════════════════════════════
+//  WEATHER RADAR — RainViewer (free, no key)
+// ══════════════════════════════════════════════════════
+
+export async function fetchWeatherRadarTimestamp() {
+    try {
+        const res = await fetch('https://api.rainviewer.com/public/weather-maps.json',
+            { signal: AbortSignal.timeout(10000) }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        // Get the latest radar frame
+        const frames = data.radar?.past || [];
+        if (frames.length === 0) return null;
+        const latest = frames[frames.length - 1];
+        console.log(`[WORLDVIEW] ✅ Weather radar timestamp: ${latest.time}`);
+        return latest.path; // e.g., "/v2/radar/1708600800"
+    } catch (err) {
+        console.error('[WORLDVIEW] RainViewer fetch error:', err);
+        return null;
+    }
+}
+
 
 // ══════════════════════════════════════════════════════
 //  SATELLITES — CelesTrak TLE Data + satellite.js
