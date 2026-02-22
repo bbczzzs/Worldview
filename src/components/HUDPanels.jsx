@@ -98,7 +98,7 @@ export function DataLayersPanel({ layers, onToggle, stats }) {
             key: 'flights',
             name: 'Live Flights',
             icon: <FlightIcon />,
-            source: 'adsb.lol + adsb.fi • live',
+            source: 'Aviation Edge • live',
             count: stats.flights || '...',
         },
         {

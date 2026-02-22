@@ -1,14 +1,16 @@
 /**
  * Real-time data services for WORLDVIEW
- * - Live flights from OpenSky Network
+ * - Live flights from Aviation Edge API
  * - Real satellites from CelesTrak + satellite.js
  */
 
 import * as satellite from 'satellite.js';
 // ══════════════════════════════════════════════════════
-//  FLIGHT ENGINE — adsb.lol + adsb.fi dual API
-//  44 global hubs, batched fetch, ~5000-7000+ unique aircraft
+//  FLIGHT ENGINE — Aviation Edge API
+//  Single API call → ALL global flights
 // ══════════════════════════════════════════════════════
+
+const AE_KEY = import.meta.env.VITE_AVIATION_EDGE_KEY || '';
 
 // Airline ICAO code → name decoder
 const AIRLINES = {
@@ -30,10 +32,10 @@ const AIRLINES = {
     THA: 'Thai Airways', THY: 'Turkish Airlines', TOM: 'TUI Airways', UAE: 'Emirates',
     UAL: 'United Airlines', UPS: 'UPS Airlines', VIR: 'Virgin Atlantic', VOZ: 'Virgin Australia',
     VJT: 'VistaJet', WZZ: 'Wizz Air', AEE: 'Aegean Airlines', AMX: 'Aeromexico',
-    AJT: 'Amerijet', ANZ: 'Air New Zealand', AST: 'Star Air', BAG: 'deuter BAG',
-    BER: 'Air Berlin', CAI: 'Corendon', CKS: 'Kalitta Air', CLX: 'Cargolux',
-    CXA: 'Xiamen Air', DAL: 'Delta', ELY: 'El Al', FPO: 'ASL Airlines',
-    GIA: 'Garuda Indonesia', JBU: 'JetBlue', JST: 'Jetstar', MAS: 'Malaysia Airlines',
+    AJT: 'Amerijet', ANZ: 'Air New Zealand', AST: 'Star Air',
+    CKS: 'Kalitta Air', CLX: 'Cargolux',
+    CXA: 'Xiamen Air', ELY: 'El Al', FPO: 'ASL Airlines',
+    GIA: 'Garuda Indonesia', JST: 'Jetstar', MAS: 'Malaysia Airlines',
     NOZ: 'Nordic Aviation', OMA: 'Oman Air', PAC: 'Polar Air Cargo', PGT: 'Pegasus',
     RJA: 'Royal Jordanian', ROT: 'TAROM', SBI: 'S7 Airlines', SEH: 'SunExpress',
     SVA: 'Saudia', TCX: 'Thomas Cook', TGW: 'Tiger Air', TVF: 'Transavia France',
@@ -45,152 +47,96 @@ function decodeAirline(callsign) {
     const prefix = callsign.substring(0, 3).toUpperCase();
     return AIRLINES[prefix] || '';
 }
-const HUBS = [
-    // EUROPE (dense airspace — 12 hubs)
-    { lat: 51, lon: 0 },     // London
-    { lat: 48, lon: 2 },     // Paris
-    { lat: 50, lon: 12 },    // Germany
-    { lat: 46, lon: 25 },    // Eastern Europe
-    { lat: 40, lon: 2 },     // Spain
-    { lat: 60, lon: 15 },    // Scandinavia
-    { lat: 55, lon: -5 },    // Ireland
-    { lat: 42, lon: 15 },    // Italy
-    { lat: 38, lon: 24 },    // Greece
-    { lat: 55, lon: 37 },    // Moscow
-    { lat: 45, lon: 5 },     // Switzerland/Alps
-    { lat: 52, lon: 20 },    // Poland
-    // NORTH AMERICA (16 hubs)
-    { lat: 40, lon: -74 },   // NYC
-    { lat: 41, lon: -88 },   // Chicago
-    { lat: 34, lon: -118 },  // LA
-    { lat: 30, lon: -97 },   // Texas
-    { lat: 33, lon: -84 },   // Atlanta
-    { lat: 45, lon: -75 },   // Montreal
-    { lat: 49, lon: -123 },  // Vancouver
-    { lat: 26, lon: -80 },   // Miami
-    { lat: 47, lon: -122 },  // Seattle
-    { lat: 39, lon: -105 },  // Denver
-    { lat: 37, lon: -122 },  // SFO
-    { lat: 19, lon: -99 },   // Mexico City
-    { lat: 44, lon: -93 },   // Minneapolis
-    { lat: 36, lon: -86 },   // Nashville/Central US
-    { lat: 53, lon: -113 },  // Edmonton/Canada
-    { lat: 29, lon: -90 },   // New Orleans
-    // MIDDLE EAST (4 hubs)
-    { lat: 25, lon: 55 },    // Dubai
-    { lat: 33, lon: 35 },    // Levant
-    { lat: 40, lon: 28 },    // Istanbul
-    { lat: 24, lon: 46 },    // Riyadh
-    // ASIA (14 hubs)
-    { lat: 35, lon: 140 },   // Tokyo
-    { lat: 37, lon: 127 },   // Seoul
-    { lat: 22, lon: 114 },   // Hong Kong
-    { lat: 31, lon: 121 },   // Shanghai
-    { lat: 40, lon: 116 },   // Beijing
-    { lat: 13, lon: 100 },   // Bangkok
-    { lat: 1, lon: 104 },    // Singapore
-    { lat: 28, lon: 77 },    // Delhi
-    { lat: 19, lon: 73 },    // Mumbai
-    { lat: 14, lon: 121 },   // Manila
-    { lat: 25, lon: 121 },   // Taiwan
-    { lat: 10, lon: 107 },   // Vietnam
-    { lat: 35, lon: 52 },    // Tehran
-    { lat: 47, lon: 68 },    // Central Asia
-    // OCEANIA + S.AMERICA + AFRICA (10 hubs)
-    { lat: -33, lon: 151 },  // Sydney
-    { lat: -37, lon: 145 },  // Melbourne
-    { lat: -23, lon: -46 },  // São Paulo
-    { lat: -34, lon: -58 },  // Buenos Aires
-    { lat: 4, lon: -74 },    // Bogotá
-    { lat: 30, lon: 31 },    // Cairo
-    { lat: -26, lon: 28 },   // Johannesburg
-    { lat: 6, lon: 3 },      // Lagos
-    { lat: -1, lon: 37 },    // Nairobi
-    { lat: 34, lon: -6 },    // Morocco
-    // OCEAN ROUTES (4 hubs)
-    { lat: 55, lon: -30 },   // N.Atlantic
-    { lat: 50, lon: -20 },   // N.Atlantic 2
-    { lat: -5, lon: 75 },    // Indian Ocean
-    { lat: 20, lon: -160 },  // Pacific
-];
 
 /**
- * Fetch live flights from BOTH adsb.lol AND adsb.fi
- * Batched to avoid overwhelming the proxy (browser allows ~6 connections)
+ * Fetch live flights from Aviation Edge API
+ * Single call gets ALL global flights
  */
 export async function fetchLiveFlights() {
+    if (!AE_KEY) {
+        console.warn('[WORLDVIEW] No Aviation Edge API key configured');
+        return null;
+    }
+
     try {
-        const seen = new Map();
+        const url = `/proxy/aviationedge/v2/public/flights?key=${AE_KEY}&limit=30000`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
 
-        // Helper: fetch a batch of URLs and parse results into `seen`
-        async function fetchBatch(urls) {
-            const results = await Promise.all(
-                urls.map(url =>
-                    fetch(url, { signal: AbortSignal.timeout(12000) })
-                        .then(r => r.ok ? r.json() : null)
-                        .catch(() => null)
-                )
-            );
-            for (const r of results) {
-                if (!r) continue;
-                const acArray = r.ac || r.aircraft || [];
-                for (const ac of acArray) {
-                    if (!ac.lat || !ac.lon) continue;
-                    if (ac.alt_baro === 'ground') continue;
-                    if (seen.has(ac.hex)) continue;
-
-                    const altFt = typeof ac.alt_baro === 'number' ? ac.alt_baro : null;
-                    const speedKts = ac.gs ? Math.round(ac.gs) : null;
-                    const callsign = (ac.flight || '').trim();
-                    const vRate = ac.baro_rate || ac.geom_rate || 0;
-
-                    seen.set(ac.hex, {
-                        id: ac.hex,
-                        callsign: callsign || ac.hex,
-                        airline: decodeAirline(callsign),
-                        lat: ac.lat,
-                        lng: ac.lon,
-                        alt: Math.max(0.005, (altFt || 10000) / 10000000),
-                        altMeters: altFt ? altFt / 3.28084 : 0,
-                        altFeet: altFt,
-                        speed: speedKts ? `${speedKts} kts` : '—',
-                        speedKts: speedKts || 0,
-                        heading: ac.track || ac.true_heading || ac.mag_heading || 0,
-                        country: '',
-                        registration: ac.r || '',
-                        aircraftType: ac.t || '',
-                        aircraftDesc: ac.desc || '',
-                        category: ac.category || '',
-                        flightLevel: altFt ? `FL${Math.round(altFt / 100)}` : '—',
-                        verticalRate: vRate ? vRate / 60 : 0,
-                        squawk: ac.squawk || '—',
-                        geoAlt: ac.alt_geom || null,
-                        status: vRate > 100 ? 'CLIMBING' : vRate < -100 ? 'DESCENDING' : 'CRUISING',
-                    });
-                }
-            }
+        if (!res.ok) {
+            console.error(`[WORLDVIEW] Aviation Edge HTTP ${res.status}`);
+            return null;
         }
 
-        // ── Build all URLs ──
-        const lolUrls = HUBS.map(h => `/proxy/adsblol/v2/lat/${h.lat}/lon/${h.lon}/dist/250`);
-        const fiUrls = HUBS.map(h => `/proxy/adsbfi/api/v2/lat/${h.lat}/lon/${h.lon}/dist/250`);
-        const specialUrls = ['/proxy/adsblol/v2/mil', '/proxy/adsblol/v2/ladd'];
+        const data = await res.json();
 
-        // ── Fetch in batches of 10 to avoid proxy overload ──
-        const BATCH = 10;
-        for (let i = 0; i < lolUrls.length; i += BATCH) {
-            await fetchBatch(lolUrls.slice(i, i + BATCH));
+        if (!Array.isArray(data)) {
+            console.warn('[WORLDVIEW] Aviation Edge returned non-array:', data);
+            return null;
         }
-        for (let i = 0; i < fiUrls.length; i += BATCH) {
-            await fetchBatch(fiUrls.slice(i, i + BATCH));
-        }
-        await fetchBatch(specialUrls);
 
-        const flights = Array.from(seen.values());
-        console.log(`[WORLDVIEW] ✅ ${flights.length} unique flights (adsb.lol + adsb.fi + mil/ladd)`);
+        const flights = [];
+        for (const f of data) {
+            const geo = f.geography || {};
+            const lat = parseFloat(geo.latitude);
+            const lng = parseFloat(geo.longitude);
+            if (isNaN(lat) || isNaN(lng)) continue;
+            if (lat === 0 && lng === 0) continue;
+
+            const altFt = parseFloat(geo.altitude) || 0;
+            const heading = parseFloat(geo.direction) || 0;
+            const hSpeed = parseFloat((f.speed || {}).horizontal) || 0;
+            const vSpeed = parseFloat((f.speed || {}).vspeed) || 0;
+
+            const flightIcao = (f.flight || {}).icaoNumber || '';
+            const flightIata = (f.flight || {}).iataNumber || '';
+            const callsign = flightIcao || flightIata || '';
+            const airlineIcao = (f.airline || {}).icaoCode || '';
+            const airlineIata = (f.airline || {}).iataCode || '';
+            const airline = decodeAirline(airlineIcao) || airlineIcao || airlineIata;
+
+            const depIata = (f.departure || {}).iataCode || '';
+            const arrIata = (f.arrival || {}).iataCode || '';
+            const acIcao24 = (f.aircraft || {}).icao24 || '';
+            const acReg = (f.aircraft || {}).regNumber || '';
+            const acIcaoCode = (f.aircraft || {}).icaoCode || '';
+
+            const status = f.status || '';
+            const squawk = (f.system || {}).squawk || '—';
+
+            // Determine flight status from vertical speed
+            const flightStatus = vSpeed > 100 ? 'CLIMBING' : vSpeed < -100 ? 'DESCENDING' : 'CRUISING';
+
+            flights.push({
+                id: acIcao24 || `${callsign}-${lat.toFixed(2)}`,
+                callsign: callsign || '—',
+                airline: airline,
+                lat,
+                lng,
+                alt: Math.max(0.005, altFt / 10000000),
+                altMeters: altFt * 0.3048,
+                altFeet: altFt,
+                speed: hSpeed ? `${Math.round(hSpeed)} kts` : '—',
+                speedKts: hSpeed || 0,
+                heading,
+                country: '',
+                registration: acReg,
+                aircraftType: acIcaoCode,
+                aircraftDesc: '',
+                category: '',
+                flightLevel: altFt ? `FL${Math.round(altFt / 100)}` : '—',
+                verticalRate: vSpeed ? vSpeed / 60 : 0,
+                squawk,
+                geoAlt: altFt,
+                status: flightStatus,
+                depAirport: depIata,
+                arrAirport: arrIata,
+            });
+        }
+
+        console.log(`[WORLDVIEW] ✅ ${flights.length} flights from Aviation Edge`);
         return flights.length > 0 ? flights : null;
     } catch (err) {
-        console.error('[WORLDVIEW] Flight fetch error:', err);
+        console.error('[WORLDVIEW] Aviation Edge fetch error:', err);
         return null;
     }
 }
