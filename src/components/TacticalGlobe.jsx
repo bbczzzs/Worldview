@@ -76,6 +76,7 @@ export default function TacticalGlobe({
     const [mapReady, setMapReady] = useState(false);
     const [selectedFlight, setSelectedFlight] = useState(null);
     const [selectedCam, setSelectedCam] = useState(null);
+    const [selectedQuake, setSelectedQuake] = useState(null);
 
     // ══════════════════════════════════════════════════════
     // 🏆 SMART HYBRID ENGINE — PERSISTENT REGISTRY
@@ -393,16 +394,18 @@ export default function TacticalGlobe({
         });
     }, [searchTarget]);
 
-    // ──── CLICK ON FLIGHT OR CCTV ────
+    // ──── CLICK ON FLIGHT, CCTV, OR EARTHQUAKE ────
     const onMapClick = useCallback((evt) => {
         if (!evt.features || evt.features.length === 0) {
             setSelectedFlight(null);
             setSelectedCam(null);
+            setSelectedQuake(null);
             return;
         }
         const f = evt.features[0];
         if (f.layer.id === 'flight-icons' || f.layer.id === 'flight-glow') {
             setSelectedCam(null);
+            setSelectedQuake(null);
             const props = f.properties;
             setSelectedFlight({
                 lng: f.geometry.coordinates[0],
@@ -423,8 +426,21 @@ export default function TacticalGlobe({
                 arrAirport: props.arrAirport || '',
                 category: props.category || 'jet',
             });
+        } else if (f.layer.id === 'quake-core' || f.layer.id === 'quake-pulse') {
+            setSelectedFlight(null);
+            setSelectedCam(null);
+            const props = f.properties;
+            setSelectedQuake({
+                lng: f.geometry.coordinates[0],
+                lat: f.geometry.coordinates[1],
+                mag: props.mag || 0,
+                depth: props.depth || 0,
+                place: props.place || 'Unknown',
+                time: props.time || Date.now(),
+            });
         } else if (f.layer.id === 'cctv-dots') {
             setSelectedFlight(null);
+            setSelectedQuake(null);
             const props = f.properties;
             setSelectedCam({
                 lng: f.geometry.coordinates[0],
@@ -437,6 +453,7 @@ export default function TacticalGlobe({
         } else {
             setSelectedFlight(null);
             setSelectedCam(null);
+            setSelectedQuake(null);
         }
     }, []);
 
@@ -538,7 +555,7 @@ export default function TacticalGlobe({
                 style={{ width: '100%', height: '100%' }}
                 onLoad={onMapLoad}
                 onClick={onMapClick}
-                interactiveLayerIds={['flight-icons', 'flight-glow', 'cctv-dots']}
+                interactiveLayerIds={['flight-icons', 'flight-glow', 'cctv-dots', 'quake-core', 'quake-pulse']}
                 attributionControl={false}
                 dragRotate={true}
                 touchZoomRotate={true}
@@ -1047,6 +1064,57 @@ export default function TacticalGlobe({
                         </div>
                     </Popup>
                 )}
+
+                {/* ═══════════════════════════════════════
+            EARTHQUAKE DETAIL POPUP
+            ═══════════════════════════════════════ */}
+                {selectedQuake && (() => {
+                    const timeAgo = (() => {
+                        const diff = Date.now() - selectedQuake.time;
+                        const mins = Math.floor(diff / 60000);
+                        if (mins < 60) return `${mins}m ago`;
+                        const hrs = Math.floor(mins / 60);
+                        if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+                        return `${Math.floor(hrs / 24)}d ago`;
+                    })();
+                    const severity = selectedQuake.mag >= 6 ? 'severe' : selectedQuake.mag >= 4 ? 'moderate' : 'minor';
+                    return (
+                        <Popup
+                            latitude={selectedQuake.lat}
+                            longitude={selectedQuake.lng}
+                            onClose={() => setSelectedQuake(null)}
+                            closeOnClick={false}
+                            anchor="bottom"
+                            className="quake-popup-wrapper"
+                        >
+                            <div className="quake-popup">
+                                <div className="qp-header">
+                                    <span className="qp-mag">M{selectedQuake.mag}</span>
+                                    <span className={`qp-severity ${severity}`}>{severity.toUpperCase()}</span>
+                                </div>
+                                <div className="qp-location">{selectedQuake.place}</div>
+                                <div className="qp-grid">
+                                    <div className="qp-item">
+                                        <span className="qp-label">DEPTH</span>
+                                        <span className="qp-value">{selectedQuake.depth.toFixed(1)} km</span>
+                                    </div>
+                                    <div className="qp-item">
+                                        <span className="qp-label">TIME</span>
+                                        <span className="qp-value">{timeAgo}</span>
+                                    </div>
+                                    <div className="qp-item">
+                                        <span className="qp-label">LAT</span>
+                                        <span className="qp-value">{selectedQuake.lat.toFixed(3)}°</span>
+                                    </div>
+                                    <div className="qp-item">
+                                        <span className="qp-label">LNG</span>
+                                        <span className="qp-value">{selectedQuake.lng.toFixed(3)}°</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Popup>
+                    );
+                })()}
             </MapGL>
 
             {/* Live status badges */}
