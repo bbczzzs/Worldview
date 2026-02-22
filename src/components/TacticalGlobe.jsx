@@ -491,31 +491,59 @@ export default function TacticalGlobe({
             CCTV — Camera locations
             ═══════════════════════════════════════ */}
                 <Source id="cctv" type="geojson" data={cctvGeo}>
+                    {/* Outer glow pulse */}
+                    <Layer
+                        id="cctv-glow"
+                        type="circle"
+                        paint={{
+                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 8, 5, 14, 10, 20],
+                            'circle-color': '#FF4500',
+                            'circle-opacity': 0.12,
+                            'circle-blur': 1,
+                        }}
+                    />
+                    {/* Main dot */}
                     <Layer
                         id="cctv-dots"
                         type="circle"
                         paint={{
-                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 2, 8, 6],
-                            'circle-color': ['case', ['==', ['get', 'status'], 'online'], '#FF6B00', '#444'],
-                            'circle-stroke-width': 1,
-                            'circle-stroke-color': 'rgba(255, 107, 0, 0.3)',
+                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 4, 5, 6, 10, 9],
+                            'circle-color': '#FF4500',
+                            'circle-stroke-width': 2,
+                            'circle-stroke-color': '#FFD700',
                         }}
                     />
+                    {/* Camera icon label */}
                     <Layer
                         id="cctv-labels"
                         type="symbol"
-                        minzoom={6}
+                        minzoom={3}
                         layout={{
-                            'text-field': ['concat', '📹 ', ['get', 'name']],
-                            'text-size': 9,
-                            'text-offset': [1, 0],
-                            'text-anchor': 'left',
+                            'text-field': '📹',
+                            'text-size': ['interpolate', ['linear'], ['zoom'], 3, 12, 6, 16, 10, 20],
+                            'text-offset': [0, -1.5],
+                            'text-anchor': 'bottom',
+                            'text-allow-overlap': true,
+                            'text-ignore-placement': true,
+                        }}
+                    />
+                    {/* Name labels at higher zoom */}
+                    <Layer
+                        id="cctv-name-labels"
+                        type="symbol"
+                        minzoom={5}
+                        layout={{
+                            'text-field': ['get', 'name'],
+                            'text-size': 10,
+                            'text-offset': [0, 1],
+                            'text-anchor': 'top',
                             'text-font': ['Open Sans Regular'],
+                            'text-allow-overlap': false,
                         }}
                         paint={{
                             'text-color': '#FF6B00',
-                            'text-halo-color': 'rgba(0, 0, 0, 0.7)',
-                            'text-halo-width': 1,
+                            'text-halo-color': 'rgba(0, 0, 0, 0.85)',
+                            'text-halo-width': 1.5,
                         }}
                     />
                 </Source>
