@@ -693,7 +693,7 @@ export default function TacticalGlobe({
                             <div className="cam-header">
                                 <span className="cam-title">📹 {selectedCam.name}</span>
                                 <span className="cam-city">{selectedCam.city}</span>
-                                <span className="cam-live-badge">● LIVE</span>
+                                <span className="cam-live-badge">LIVE</span>
                             </div>
                             <div className="cam-player">
                                 <iframe

@@ -10,8 +10,6 @@ import * as satellite from 'satellite.js';
 //  Single API call → ALL global flights
 // ══════════════════════════════════════════════════════
 
-const AE_KEY = import.meta.env.VITE_AVIATION_EDGE_KEY || '';
-
 // Airline ICAO code → name decoder
 const AIRLINES = {
     AAL: 'American Airlines', AAR: 'Asiana', ACA: 'Air Canada', AFR: 'Air France',
@@ -49,21 +47,32 @@ function decodeAirline(callsign) {
 }
 
 /**
- * Fetch live flights from Aviation Edge API
- * Single call gets ALL global flights
+ * Fetch live flights
+ * Production: /api/flights (Vercel serverless cache — shared across all visitors)
+ * Dev: /proxy/aviationedge direct (via Vite proxy)
  */
 export async function fetchLiveFlights() {
-    if (!AE_KEY) {
-        console.warn('[WORLDVIEW] No Aviation Edge API key configured');
-        return null;
-    }
-
     try {
-        const url = `/proxy/aviationedge/v2/public/flights?key=${AE_KEY}&limit=30000`;
+        const isDev = import.meta.env.DEV;
+        let url;
+
+        if (isDev) {
+            // Local dev — direct proxy (API key from .env)
+            const key = import.meta.env.VITE_AVIATION_EDGE_KEY;
+            if (!key) {
+                console.warn('[WORLDVIEW] No Aviation Edge API key in .env');
+                return null;
+            }
+            url = `/proxy/aviationedge/v2/public/flights?key=${key}&limit=30000`;
+        } else {
+            // Production — cached serverless function (API key stays server-side)
+            url = '/api/flights';
+        }
+
         const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
 
         if (!res.ok) {
-            console.error(`[WORLDVIEW] Aviation Edge HTTP ${res.status}`);
+            console.error(`[WORLDVIEW] Flights HTTP ${res.status}`);
             return null;
         }
 
@@ -247,59 +256,275 @@ export async function fetchSatellites(maxCount = 100) {
 // ══════════════════════════════════════════════════════
 
 const AIRPORTS = [
-    // North America
-    { iata: 'JFK', name: 'John F. Kennedy', city: 'New York', lat: 40.6413, lng: -73.7781 },
+    // ═══════════════════════════════════════
+    // NORTH AMERICA — USA
+    // ═══════════════════════════════════════
+    { iata: 'ATL', name: 'Hartsfield-Jackson', city: 'Atlanta', lat: 33.6407, lng: -84.4277 },
     { iata: 'LAX', name: 'Los Angeles Intl', city: 'Los Angeles', lat: 33.9425, lng: -118.4081 },
     { iata: 'ORD', name: "O'Hare Intl", city: 'Chicago', lat: 41.9742, lng: -87.9073 },
-    { iata: 'ATL', name: 'Hartsfield-Jackson', city: 'Atlanta', lat: 33.6407, lng: -84.4277 },
     { iata: 'DFW', name: 'Dallas/Fort Worth', city: 'Dallas', lat: 32.8998, lng: -97.0403 },
     { iata: 'DEN', name: 'Denver Intl', city: 'Denver', lat: 39.8561, lng: -104.6737 },
+    { iata: 'JFK', name: 'John F. Kennedy', city: 'New York', lat: 40.6413, lng: -73.7781 },
     { iata: 'SFO', name: 'San Francisco Intl', city: 'San Francisco', lat: 37.6213, lng: -122.3790 },
     { iata: 'SEA', name: 'Seattle-Tacoma', city: 'Seattle', lat: 47.4502, lng: -122.3088 },
     { iata: 'MIA', name: 'Miami Intl', city: 'Miami', lat: 25.7959, lng: -80.2870 },
+    { iata: 'EWR', name: 'Newark Liberty', city: 'Newark', lat: 40.6895, lng: -74.1745 },
+    { iata: 'MCO', name: 'Orlando Intl', city: 'Orlando', lat: 28.4312, lng: -81.3081 },
+    { iata: 'CLT', name: 'Charlotte Douglas', city: 'Charlotte', lat: 35.2140, lng: -80.9431 },
+    { iata: 'PHX', name: 'Sky Harbor', city: 'Phoenix', lat: 33.4373, lng: -112.0078 },
+    { iata: 'IAH', name: 'George Bush', city: 'Houston', lat: 29.9902, lng: -95.3368 },
+    { iata: 'LAS', name: 'Harry Reid', city: 'Las Vegas', lat: 36.0840, lng: -115.1537 },
+    { iata: 'MSP', name: 'Minneapolis-St Paul', city: 'Minneapolis', lat: 44.8848, lng: -93.2223 },
+    { iata: 'DTW', name: 'Detroit Metro', city: 'Detroit', lat: 42.2124, lng: -83.3534 },
+    { iata: 'BOS', name: 'Logan Intl', city: 'Boston', lat: 42.3656, lng: -71.0096 },
+    { iata: 'PHL', name: 'Philadelphia Intl', city: 'Philadelphia', lat: 39.8744, lng: -75.2424 },
+    { iata: 'LGA', name: 'LaGuardia', city: 'New York', lat: 40.7769, lng: -73.8740 },
+    { iata: 'FLL', name: 'Fort Lauderdale', city: 'Fort Lauderdale', lat: 26.0726, lng: -80.1527 },
+    { iata: 'BWI', name: 'Baltimore/Washington', city: 'Baltimore', lat: 39.1754, lng: -76.6683 },
+    { iata: 'IAD', name: 'Dulles Intl', city: 'Washington DC', lat: 38.9531, lng: -77.4565 },
+    { iata: 'DCA', name: 'Reagan National', city: 'Washington DC', lat: 38.8521, lng: -77.0377 },
+    { iata: 'SLC', name: 'Salt Lake City', city: 'Salt Lake City', lat: 40.7899, lng: -111.9791 },
+    { iata: 'SAN', name: 'San Diego Intl', city: 'San Diego', lat: 32.7336, lng: -117.1897 },
+    { iata: 'TPA', name: 'Tampa Intl', city: 'Tampa', lat: 27.9755, lng: -82.5332 },
+    { iata: 'PDX', name: 'Portland Intl', city: 'Portland', lat: 45.5898, lng: -122.5951 },
+    { iata: 'HNL', name: 'Daniel K. Inouye', city: 'Honolulu', lat: 21.3245, lng: -157.9251 },
+    { iata: 'ANC', name: 'Ted Stevens', city: 'Anchorage', lat: 61.1743, lng: -149.9982 },
+    { iata: 'STL', name: 'St. Louis Lambert', city: 'St. Louis', lat: 38.7487, lng: -90.3700 },
+    { iata: 'MCI', name: 'Kansas City Intl', city: 'Kansas City', lat: 39.2976, lng: -94.7139 },
+    { iata: 'RDU', name: 'Raleigh-Durham', city: 'Raleigh', lat: 35.8776, lng: -78.7875 },
+    { iata: 'BNA', name: 'Nashville Intl', city: 'Nashville', lat: 36.1263, lng: -86.6774 },
+    { iata: 'AUS', name: 'Austin-Bergstrom', city: 'Austin', lat: 30.1975, lng: -97.6664 },
+    { iata: 'MSY', name: 'Louis Armstrong', city: 'New Orleans', lat: 29.9934, lng: -90.2580 },
+    { iata: 'IND', name: 'Indianapolis Intl', city: 'Indianapolis', lat: 39.7173, lng: -86.2944 },
+    { iata: 'PIT', name: 'Pittsburgh Intl', city: 'Pittsburgh', lat: 40.4915, lng: -80.2329 },
+    { iata: 'CLE', name: 'Cleveland Hopkins', city: 'Cleveland', lat: 41.4058, lng: -81.8540 },
+    { iata: 'CMH', name: 'John Glenn Columbus', city: 'Columbus', lat: 39.9980, lng: -82.8919 },
+    // CANADA
     { iata: 'YYZ', name: 'Toronto Pearson', city: 'Toronto', lat: 43.6777, lng: -79.6248 },
+    { iata: 'YVR', name: 'Vancouver Intl', city: 'Vancouver', lat: 49.1967, lng: -123.1815 },
+    { iata: 'YUL', name: 'Montréal-Trudeau', city: 'Montréal', lat: 45.4706, lng: -73.7408 },
+    { iata: 'YYC', name: 'Calgary Intl', city: 'Calgary', lat: 51.1215, lng: -114.0076 },
+    { iata: 'YEG', name: 'Edmonton Intl', city: 'Edmonton', lat: 53.3097, lng: -113.5800 },
+    { iata: 'YOW', name: 'Ottawa Macdonald', city: 'Ottawa', lat: 45.3225, lng: -75.6692 },
+    { iata: 'YWG', name: 'Winnipeg Richardson', city: 'Winnipeg', lat: 49.9100, lng: -97.2399 },
+    { iata: 'YHZ', name: 'Halifax Stanfield', city: 'Halifax', lat: 44.8808, lng: -63.5085 },
+    // MEXICO & CENTRAL AMERICA
     { iata: 'MEX', name: 'Mexico City Intl', city: 'Mexico City', lat: 19.4363, lng: -99.0721 },
-    // Europe
+    { iata: 'CUN', name: 'Cancún Intl', city: 'Cancún', lat: 21.0365, lng: -86.8771 },
+    { iata: 'GDL', name: 'Guadalajara Intl', city: 'Guadalajara', lat: 20.5218, lng: -103.3111 },
+    { iata: 'MTY', name: 'Monterrey Intl', city: 'Monterrey', lat: 25.7785, lng: -100.1069 },
+    { iata: 'SJO', name: 'Juan Santamaría', city: 'San José', lat: 9.9939, lng: -84.2088 },
+    { iata: 'PTY', name: 'Tocumen Intl', city: 'Panama City', lat: 9.0714, lng: -79.3835 },
+    { iata: 'SAL', name: 'El Salvador Intl', city: 'San Salvador', lat: 13.4409, lng: -89.0557 },
+    { iata: 'GUA', name: 'La Aurora', city: 'Guatemala City', lat: 14.5833, lng: -90.5275 },
+    // CARIBBEAN
+    { iata: 'SJU', name: 'Luis Muñoz Marín', city: 'San Juan', lat: 18.4394, lng: -66.0018 },
+    { iata: 'NAS', name: 'Lynden Pindling', city: 'Nassau', lat: 25.0390, lng: -77.4662 },
+    { iata: 'KIN', name: 'Norman Manley', city: 'Kingston', lat: 17.9357, lng: -76.7875 },
+    { iata: 'POS', name: 'Piarco Intl', city: 'Port of Spain', lat: 10.5954, lng: -61.3372 },
+    { iata: 'HAV', name: 'José Martí', city: 'Havana', lat: 22.9892, lng: -82.4091 },
+    { iata: 'SDQ', name: 'Las Américas', city: 'Santo Domingo', lat: 18.4297, lng: -69.6689 },
+    // ═══════════════════════════════════════
+    // SOUTH AMERICA
+    // ═══════════════════════════════════════
+    { iata: 'GRU', name: 'Guarulhos', city: 'São Paulo', lat: -23.4356, lng: -46.4731 },
+    { iata: 'GIG', name: 'Galeão', city: 'Rio de Janeiro', lat: -22.8100, lng: -43.2506 },
+    { iata: 'BSB', name: 'Brasília Intl', city: 'Brasília', lat: -15.8711, lng: -47.9186 },
+    { iata: 'CNF', name: 'Confins', city: 'Belo Horizonte', lat: -19.6244, lng: -43.9719 },
+    { iata: 'EZE', name: 'Ezeiza', city: 'Buenos Aires', lat: -34.8222, lng: -58.5358 },
+    { iata: 'AEP', name: 'Aeroparque', city: 'Buenos Aires', lat: -34.5592, lng: -58.4156 },
+    { iata: 'BOG', name: 'El Dorado', city: 'Bogotá', lat: 4.7016, lng: -74.1469 },
+    { iata: 'SCL', name: 'Arturo Merino', city: 'Santiago', lat: -33.3930, lng: -70.7858 },
+    { iata: 'LIM', name: 'Jorge Chávez', city: 'Lima', lat: -12.0219, lng: -77.1143 },
+    { iata: 'UIO', name: 'Mariscal Sucre', city: 'Quito', lat: -0.1292, lng: -78.3575 },
+    { iata: 'CCS', name: 'Simón Bolívar', city: 'Caracas', lat: 10.6012, lng: -66.9913 },
+    { iata: 'MVD', name: 'Carrasco Intl', city: 'Montevideo', lat: -34.8384, lng: -56.0308 },
+    { iata: 'ASU', name: 'Silvio Pettirossi', city: 'Asunción', lat: -25.2400, lng: -57.5200 },
+    { iata: 'VVI', name: 'Viru Viru', city: 'Santa Cruz', lat: -17.6448, lng: -63.1354 },
+    { iata: 'MDE', name: 'José María Córdova', city: 'Medellín', lat: 6.1645, lng: -75.4231 },
+    // ═══════════════════════════════════════
+    // EUROPE — WESTERN
+    // ═══════════════════════════════════════
     { iata: 'LHR', name: 'Heathrow', city: 'London', lat: 51.4700, lng: -0.4543 },
+    { iata: 'LGW', name: 'Gatwick', city: 'London', lat: 51.1537, lng: -0.1821 },
+    { iata: 'STN', name: 'Stansted', city: 'London', lat: 51.8860, lng: 0.2389 },
+    { iata: 'LTN', name: 'Luton', city: 'London', lat: 51.8747, lng: -0.3683 },
     { iata: 'CDG', name: 'Charles de Gaulle', city: 'Paris', lat: 49.0097, lng: 2.5479 },
+    { iata: 'ORY', name: 'Orly', city: 'Paris', lat: 48.7262, lng: 2.3652 },
     { iata: 'FRA', name: 'Frankfurt', city: 'Frankfurt', lat: 50.0379, lng: 8.5622 },
     { iata: 'AMS', name: 'Schiphol', city: 'Amsterdam', lat: 52.3105, lng: 4.7683 },
     { iata: 'MAD', name: 'Barajas', city: 'Madrid', lat: 40.4983, lng: -3.5676 },
-    { iata: 'FCO', name: 'Fiumicino', city: 'Rome', lat: 41.8003, lng: 12.2389 },
-    { iata: 'IST', name: 'Istanbul Airport', city: 'Istanbul', lat: 41.2608, lng: 28.7418 },
-    { iata: 'MUC', name: 'Munich', city: 'Munich', lat: 48.3537, lng: 11.7750 },
     { iata: 'BCN', name: 'El Prat', city: 'Barcelona', lat: 41.2974, lng: 2.0833 },
+    { iata: 'FCO', name: 'Fiumicino', city: 'Rome', lat: 41.8003, lng: 12.2389 },
+    { iata: 'MXP', name: 'Malpensa', city: 'Milan', lat: 45.6306, lng: 8.7281 },
+    { iata: 'MUC', name: 'Munich', city: 'Munich', lat: 48.3537, lng: 11.7750 },
     { iata: 'ZRH', name: 'Zurich', city: 'Zurich', lat: 47.4647, lng: 8.5492 },
-    // Middle East
+    { iata: 'VIE', name: 'Vienna Intl', city: 'Vienna', lat: 48.1103, lng: 16.5697 },
+    { iata: 'BRU', name: 'Brussels', city: 'Brussels', lat: 50.9014, lng: 4.4844 },
+    { iata: 'LIS', name: 'Humberto Delgado', city: 'Lisbon', lat: 38.7742, lng: -9.1342 },
+    { iata: 'DUB', name: 'Dublin', city: 'Dublin', lat: 53.4213, lng: -6.2701 },
+    { iata: 'MAN', name: 'Manchester', city: 'Manchester', lat: 53.3537, lng: -2.2750 },
+    { iata: 'EDI', name: 'Edinburgh', city: 'Edinburgh', lat: 55.9508, lng: -3.3615 },
+    { iata: 'GVA', name: 'Geneva', city: 'Geneva', lat: 46.2381, lng: 6.1089 },
+    { iata: 'CPH', name: 'Kastrup', city: 'Copenhagen', lat: 55.6180, lng: 12.6508 },
+    { iata: 'ARN', name: 'Arlanda', city: 'Stockholm', lat: 59.6519, lng: 17.9186 },
+    { iata: 'OSL', name: 'Gardermoen', city: 'Oslo', lat: 60.1939, lng: 11.1004 },
+    { iata: 'HEL', name: 'Helsinki-Vantaa', city: 'Helsinki', lat: 60.3172, lng: 24.9633 },
+    { iata: 'AGP', name: 'Málaga-Costa del Sol', city: 'Málaga', lat: 36.6749, lng: -4.4991 },
+    { iata: 'PMI', name: 'Palma de Mallorca', city: 'Palma', lat: 39.5517, lng: 2.7388 },
+    { iata: 'NCE', name: 'Nice Côte d Azur', city: 'Nice', lat: 43.6584, lng: 7.2159 },
+    { iata: 'HAM', name: 'Hamburg', city: 'Hamburg', lat: 53.6304, lng: 9.9882 },
+    { iata: 'DUS', name: 'Düsseldorf', city: 'Düsseldorf', lat: 51.2895, lng: 6.7668 },
+    { iata: 'TXL', name: 'Berlin Brandenburg', city: 'Berlin', lat: 52.3667, lng: 13.5033 },
+    { iata: 'ATH', name: 'Eleftherios Venizelos', city: 'Athens', lat: 37.9364, lng: 23.9445 },
+    { iata: 'NAP', name: 'Naples Intl', city: 'Naples', lat: 40.8860, lng: 14.2908 },
+    { iata: 'VCE', name: 'Marco Polo', city: 'Venice', lat: 45.5053, lng: 12.3519 },
+    // EASTERN EUROPE
+    { iata: 'IST', name: 'Istanbul Airport', city: 'Istanbul', lat: 41.2608, lng: 28.7418 },
+    { iata: 'SAW', name: 'Sabiha Gökçen', city: 'Istanbul', lat: 40.8986, lng: 29.3092 },
+    { iata: 'AYT', name: 'Antalya', city: 'Antalya', lat: 36.8987, lng: 30.8005 },
+    { iata: 'WAW', name: 'Chopin', city: 'Warsaw', lat: 52.1657, lng: 20.9671 },
+    { iata: 'PRG', name: 'Václav Havel', city: 'Prague', lat: 50.1008, lng: 14.2600 },
+    { iata: 'BUD', name: 'Ferenc Liszt', city: 'Budapest', lat: 47.4369, lng: 19.2556 },
+    { iata: 'OTP', name: 'Henri Coandă', city: 'Bucharest', lat: 44.5711, lng: 26.0850 },
+    { iata: 'SOF', name: 'Sofia', city: 'Sofia', lat: 42.6967, lng: 23.4114 },
+    { iata: 'SVO', name: 'Sheremetyevo', city: 'Moscow', lat: 55.9726, lng: 37.4146 },
+    { iata: 'DME', name: 'Domodedovo', city: 'Moscow', lat: 55.4088, lng: 37.9063 },
+    { iata: 'LED', name: 'Pulkovo', city: 'St Petersburg', lat: 59.8003, lng: 30.2625 },
+    { iata: 'KBP', name: 'Boryspil', city: 'Kyiv', lat: 50.3450, lng: 30.8947 },
+    { iata: 'TLL', name: 'Tallinn', city: 'Tallinn', lat: 59.4133, lng: 24.8328 },
+    { iata: 'RIX', name: 'Riga Intl', city: 'Riga', lat: 56.9236, lng: 23.9711 },
+    { iata: 'VNO', name: 'Vilnius', city: 'Vilnius', lat: 54.6341, lng: 25.2858 },
+    { iata: 'BEG', name: 'Nikola Tesla', city: 'Belgrade', lat: 44.8184, lng: 20.3091 },
+    { iata: 'ZAG', name: 'Franjo Tuđman', city: 'Zagreb', lat: 45.7430, lng: 16.0688 },
+    // ═══════════════════════════════════════
+    // MIDDLE EAST
+    // ═══════════════════════════════════════
     { iata: 'DXB', name: 'Dubai Intl', city: 'Dubai', lat: 25.2532, lng: 55.3657 },
-    { iata: 'DOH', name: 'Hamad Intl', city: 'Doha', lat: 25.2731, lng: 51.6081 },
+    { iata: 'DWC', name: 'Al Maktoum', city: 'Dubai', lat: 24.8960, lng: 55.1614 },
     { iata: 'AUH', name: 'Abu Dhabi Intl', city: 'Abu Dhabi', lat: 24.4331, lng: 54.6511 },
+    { iata: 'DOH', name: 'Hamad Intl', city: 'Doha', lat: 25.2731, lng: 51.6081 },
     { iata: 'JED', name: 'King Abdulaziz', city: 'Jeddah', lat: 21.6796, lng: 39.1565 },
-    // Asia
+    { iata: 'RUH', name: 'King Khalid', city: 'Riyadh', lat: 24.9578, lng: 46.6989 },
+    { iata: 'KWI', name: 'Kuwait Intl', city: 'Kuwait City', lat: 29.2266, lng: 47.9689 },
+    { iata: 'BAH', name: 'Bahrain Intl', city: 'Manama', lat: 26.2708, lng: 50.6336 },
+    { iata: 'MCT', name: 'Muscat Intl', city: 'Muscat', lat: 23.5933, lng: 58.2844 },
+    { iata: 'AMM', name: 'Queen Alia', city: 'Amman', lat: 31.7226, lng: 35.9932 },
+    { iata: 'BEY', name: 'Rafic Hariri', city: 'Beirut', lat: 33.8209, lng: 35.4884 },
+    { iata: 'TLV', name: 'Ben Gurion', city: 'Tel Aviv', lat: 32.0055, lng: 34.8854 },
+    { iata: 'IKA', name: 'Imam Khomeini', city: 'Tehran', lat: 35.4161, lng: 51.1522 },
+    { iata: 'BGW', name: 'Baghdad Intl', city: 'Baghdad', lat: 33.2625, lng: 44.2346 },
+    // ═══════════════════════════════════════
+    // ASIA — EAST
+    // ═══════════════════════════════════════
     { iata: 'HND', name: 'Haneda', city: 'Tokyo', lat: 35.5494, lng: 139.7798 },
     { iata: 'NRT', name: 'Narita', city: 'Tokyo', lat: 35.7720, lng: 140.3929 },
+    { iata: 'KIX', name: 'Kansai', city: 'Osaka', lat: 34.4347, lng: 135.2440 },
+    { iata: 'CTS', name: 'New Chitose', city: 'Sapporo', lat: 42.7752, lng: 141.6925 },
+    { iata: 'FUK', name: 'Fukuoka', city: 'Fukuoka', lat: 33.5902, lng: 130.4517 },
+    { iata: 'NGO', name: 'Chubu Centrair', city: 'Nagoya', lat: 34.8584, lng: 136.8125 },
     { iata: 'PEK', name: 'Capital Intl', city: 'Beijing', lat: 40.0799, lng: 116.6031 },
+    { iata: 'PKX', name: 'Daxing', city: 'Beijing', lat: 39.5098, lng: 116.4105 },
     { iata: 'PVG', name: 'Pudong', city: 'Shanghai', lat: 31.1443, lng: 121.8083 },
+    { iata: 'SHA', name: 'Hongqiao', city: 'Shanghai', lat: 31.1979, lng: 121.3363 },
+    { iata: 'CAN', name: 'Baiyun', city: 'Guangzhou', lat: 23.3924, lng: 113.2988 },
+    { iata: 'SZX', name: 'Bao an', city: 'Shenzhen', lat: 22.6393, lng: 113.8107 },
+    { iata: 'CTU', name: 'Shuangliu', city: 'Chengdu', lat: 30.5785, lng: 103.9471 },
+    { iata: 'CKG', name: 'Jiangbei', city: 'Chongqing', lat: 29.7192, lng: 106.6417 },
+    { iata: 'WUH', name: 'Tianhe', city: 'Wuhan', lat: 30.7838, lng: 114.2081 },
+    { iata: 'XIY', name: 'Xianyang', city: "Xi'an", lat: 34.4471, lng: 108.7516 },
+    { iata: 'HGH', name: 'Xiaoshan', city: 'Hangzhou', lat: 30.2295, lng: 120.4344 },
+    { iata: 'KMG', name: 'Changshui', city: 'Kunming', lat: 25.1019, lng: 102.9292 },
     { iata: 'HKG', name: 'Hong Kong Intl', city: 'Hong Kong', lat: 22.3080, lng: 113.9185 },
     { iata: 'ICN', name: 'Incheon', city: 'Seoul', lat: 37.4602, lng: 126.4407 },
+    { iata: 'GMP', name: 'Gimpo', city: 'Seoul', lat: 37.5583, lng: 126.7906 },
+    { iata: 'TPE', name: 'Taoyuan', city: 'Taipei', lat: 25.0797, lng: 121.2342 },
+    { iata: 'ULN', name: 'Chinggis Khaan', city: 'Ulaanbaatar', lat: 47.8431, lng: 106.7672 },
+    // SOUTHEAST ASIA
     { iata: 'SIN', name: 'Changi', city: 'Singapore', lat: 1.3644, lng: 103.9915 },
     { iata: 'BKK', name: 'Suvarnabhumi', city: 'Bangkok', lat: 13.6900, lng: 100.7501 },
+    { iata: 'DMK', name: 'Don Mueang', city: 'Bangkok', lat: 13.9126, lng: 100.6068 },
+    { iata: 'KUL', name: 'KL Intl', city: 'Kuala Lumpur', lat: 2.7456, lng: 101.7099 },
+    { iata: 'CGK', name: 'Soekarno-Hatta', city: 'Jakarta', lat: -6.1256, lng: 106.6558 },
+    { iata: 'DPS', name: 'Ngurah Rai', city: 'Bali', lat: -8.7482, lng: 115.1672 },
+    { iata: 'MNL', name: 'Ninoy Aquino', city: 'Manila', lat: 14.5086, lng: 121.0198 },
+    { iata: 'CEB', name: 'Mactan-Cebu', city: 'Cebu', lat: 10.3070, lng: 123.9794 },
+    { iata: 'SGN', name: 'Tan Son Nhat', city: 'Ho Chi Minh City', lat: 10.8188, lng: 106.6520 },
+    { iata: 'HAN', name: 'Noi Bai', city: 'Hanoi', lat: 21.2212, lng: 105.8070 },
+    { iata: 'DAD', name: 'Da Nang', city: 'Da Nang', lat: 16.0439, lng: 108.1992 },
+    { iata: 'PNH', name: 'Phnom Penh', city: 'Phnom Penh', lat: 11.5466, lng: 104.8441 },
+    { iata: 'REP', name: 'Siem Reap', city: 'Siem Reap', lat: 13.4107, lng: 103.8128 },
+    { iata: 'RGN', name: 'Yangon Intl', city: 'Yangon', lat: 16.9073, lng: 96.1332 },
+    { iata: 'VTE', name: 'Wattay', city: 'Vientiane', lat: 17.9883, lng: 102.5633 },
+    // SOUTH ASIA
     { iata: 'DEL', name: 'Indira Gandhi', city: 'Delhi', lat: 28.5562, lng: 77.1000 },
     { iata: 'BOM', name: 'Chhatrapati Shivaji', city: 'Mumbai', lat: 19.0896, lng: 72.8656 },
-    { iata: 'KUL', name: 'KL Intl', city: 'Kuala Lumpur', lat: 2.7456, lng: 101.7099 },
-    // Oceania
+    { iata: 'BLR', name: 'Kempegowda', city: 'Bangalore', lat: 13.1979, lng: 77.7063 },
+    { iata: 'MAA', name: 'Chennai Intl', city: 'Chennai', lat: 12.9941, lng: 80.1709 },
+    { iata: 'HYD', name: 'Rajiv Gandhi', city: 'Hyderabad', lat: 17.2403, lng: 78.4294 },
+    { iata: 'CCU', name: 'Netaji Subhas Chandra', city: 'Kolkata', lat: 22.6547, lng: 88.4467 },
+    { iata: 'COK', name: 'Cochin Intl', city: 'Kochi', lat: 10.1520, lng: 76.4019 },
+    { iata: 'GOI', name: 'Dabolim', city: 'Goa', lat: 15.3808, lng: 73.8314 },
+    { iata: 'AMD', name: 'Sardar Vallabhbhai Patel', city: 'Ahmedabad', lat: 23.0772, lng: 72.6347 },
+    { iata: 'ISB', name: 'Islamabad Intl', city: 'Islamabad', lat: 33.5605, lng: 72.8526 },
+    { iata: 'KHI', name: 'Jinnah Intl', city: 'Karachi', lat: 24.9065, lng: 67.1610 },
+    { iata: 'LHE', name: 'Allama Iqbal', city: 'Lahore', lat: 31.5216, lng: 74.4036 },
+    { iata: 'DAC', name: 'Hazrat Shahjalal', city: 'Dhaka', lat: 23.8432, lng: 90.3978 },
+    { iata: 'CMB', name: 'Bandaranaike', city: 'Colombo', lat: 7.1808, lng: 79.8841 },
+    { iata: 'KTM', name: 'Tribhuvan', city: 'Kathmandu', lat: 27.6966, lng: 85.3591 },
+    { iata: 'MLE', name: 'Velana', city: 'Malé', lat: 4.1918, lng: 73.5292 },
+    // CENTRAL ASIA
+    { iata: 'TAS', name: 'Tashkent', city: 'Tashkent', lat: 41.2579, lng: 69.2812 },
+    { iata: 'ALA', name: 'Almaty', city: 'Almaty', lat: 43.3521, lng: 77.0405 },
+    { iata: 'NQZ', name: 'Nursultan Nazarbayev', city: 'Astana', lat: 51.0222, lng: 71.4669 },
+    { iata: 'GYD', name: 'Heydar Aliyev', city: 'Baku', lat: 40.4675, lng: 50.0467 },
+    { iata: 'TBS', name: 'Tbilisi Intl', city: 'Tbilisi', lat: 41.6692, lng: 44.9547 },
+    { iata: 'EVN', name: 'Zvartnots', city: 'Yerevan', lat: 40.1473, lng: 44.3959 },
+    // ═══════════════════════════════════════
+    // OCEANIA
+    // ═══════════════════════════════════════
     { iata: 'SYD', name: 'Kingsford Smith', city: 'Sydney', lat: -33.9461, lng: 151.1772 },
     { iata: 'MEL', name: 'Tullamarine', city: 'Melbourne', lat: -37.6690, lng: 144.8410 },
+    { iata: 'BNE', name: 'Brisbane', city: 'Brisbane', lat: -27.3842, lng: 153.1175 },
+    { iata: 'PER', name: 'Perth', city: 'Perth', lat: -31.9403, lng: 115.9672 },
+    { iata: 'ADL', name: 'Adelaide', city: 'Adelaide', lat: -34.9461, lng: 138.5311 },
+    { iata: 'CBR', name: 'Canberra', city: 'Canberra', lat: -35.3069, lng: 149.1951 },
     { iata: 'AKL', name: 'Auckland Intl', city: 'Auckland', lat: -37.0082, lng: 174.7850 },
-    // South America
-    { iata: 'GRU', name: 'Guarulhos', city: 'São Paulo', lat: -23.4356, lng: -46.4731 },
-    { iata: 'EZE', name: 'Ezeiza', city: 'Buenos Aires', lat: -34.8222, lng: -58.5358 },
-    { iata: 'BOG', name: 'El Dorado', city: 'Bogotá', lat: 4.7016, lng: -74.1469 },
-    // Africa
+    { iata: 'WLG', name: 'Wellington', city: 'Wellington', lat: -41.3272, lng: 174.8053 },
+    { iata: 'CHC', name: 'Christchurch', city: 'Christchurch', lat: -43.4894, lng: 172.5322 },
+    { iata: 'NAN', name: 'Nadi Intl', city: 'Fiji', lat: -17.7554, lng: 177.4431 },
+    { iata: 'PPT', name: 'Faa a', city: 'Tahiti', lat: -17.5537, lng: -149.6115 },
+    { iata: 'APW', name: 'Faleolo', city: 'Apia', lat: -13.8299, lng: -172.0083 },
+    // ═══════════════════════════════════════
+    // AFRICA
+    // ═══════════════════════════════════════
     { iata: 'JNB', name: 'OR Tambo', city: 'Johannesburg', lat: -26.1392, lng: 28.2460 },
+    { iata: 'CPT', name: 'Cape Town Intl', city: 'Cape Town', lat: -33.9715, lng: 18.6021 },
+    { iata: 'DUR', name: 'King Shaka', city: 'Durban', lat: -29.6144, lng: 31.1197 },
     { iata: 'CAI', name: 'Cairo Intl', city: 'Cairo', lat: 30.1219, lng: 31.4056 },
+    { iata: 'HRG', name: 'Hurghada', city: 'Hurghada', lat: 27.1784, lng: 33.7994 },
+    { iata: 'SSH', name: 'Sharm El Sheikh', city: 'Sharm El Sheikh', lat: 27.9773, lng: 34.3947 },
+    { iata: 'CMN', name: 'Mohammed V', city: 'Casablanca', lat: 33.3675, lng: -7.5900 },
+    { iata: 'RAK', name: 'Marrakech Menara', city: 'Marrakech', lat: 31.6069, lng: -8.0363 },
+    { iata: 'ALG', name: 'Houari Boumediene', city: 'Algiers', lat: 36.6910, lng: 3.2154 },
+    { iata: 'TUN', name: 'Tunis-Carthage', city: 'Tunis', lat: 36.8510, lng: 10.2272 },
     { iata: 'LOS', name: 'Murtala Muhammed', city: 'Lagos', lat: 6.5774, lng: 3.3212 },
+    { iata: 'ABV', name: 'Nnamdi Azikiwe', city: 'Abuja', lat: 9.0068, lng: 7.2632 },
+    { iata: 'ACC', name: 'Kotoka', city: 'Accra', lat: 5.6052, lng: -0.1668 },
+    { iata: 'NBO', name: 'Jomo Kenyatta', city: 'Nairobi', lat: -1.3192, lng: 36.9278 },
+    { iata: 'MBA', name: 'Moi Intl', city: 'Mombasa', lat: -4.0348, lng: 39.5942 },
     { iata: 'ADD', name: 'Bole Intl', city: 'Addis Ababa', lat: 8.9779, lng: 38.7993 },
+    { iata: 'DAR', name: 'Julius Nyerere', city: 'Dar es Salaam', lat: -6.8781, lng: 39.2026 },
+    { iata: 'EBB', name: 'Entebbe', city: 'Entebbe', lat: 0.0424, lng: 32.4435 },
+    { iata: 'KGL', name: 'Kigali Intl', city: 'Kigali', lat: -1.9686, lng: 30.1395 },
+    { iata: 'DSS', name: 'Blaise Diagne', city: 'Dakar', lat: 14.6700, lng: -17.0733 },
+    { iata: 'TNR', name: 'Ivato', city: 'Antananarivo', lat: -18.7969, lng: 47.4789 },
+    { iata: 'MRU', name: 'SSR Intl', city: 'Mauritius', lat: -20.4302, lng: 57.6836 },
+    { iata: 'SEZ', name: 'Seychelles Intl', city: 'Mahé', lat: -4.6743, lng: 55.5218 },
+    { iata: 'WDH', name: 'Hosea Kutako', city: 'Windhoek', lat: -22.4799, lng: 17.4709 },
+    { iata: 'MPM', name: 'Maputo Intl', city: 'Maputo', lat: -25.9208, lng: 32.5726 },
+    { iata: 'LUN', name: 'Kenneth Kaunda', city: 'Lusaka', lat: -15.3308, lng: 28.4526 },
+    { iata: 'HRE', name: 'Robert Mugabe', city: 'Harare', lat: -17.9318, lng: 31.0928 },
 ];
 
 export function getAirports() {
@@ -334,10 +559,6 @@ const CCTV_LOCATIONS = [
     {
         id: 'ib-1', lat: 38.9806, lng: 1.3015, name: 'Café del Mar Sunset', city: 'Ibiza',
         streamUrl: 'https://www.youtube.com/embed/DuBAVRZVn2A?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
-    },
-    {
-        id: 'ks-1', lat: 9.5120, lng: 100.0136, name: 'Crystal Bay Beach', city: 'Koh Samui',
-        streamUrl: 'https://www.youtube.com/embed/kkVrj2cr9Ko?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
     },
     {
         id: 'mi-1', lat: 25.7617, lng: -80.1918, name: 'Biscayne Bay', city: 'Miami',
