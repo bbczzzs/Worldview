@@ -1573,3 +1573,245 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin: -8px -10px;
   pointer-events: auto;
 }
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE RESPONSIVE
+   ═══════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* Top bar — compact */
+  .top-bar {
+    padding: 8px 12px;
+  }
+
+  .brand-title {
+    font-size: 16px;
+    letter-spacing: 2px;
+  }
+
+  .brand-subtitle {
+    font-size: 7px;
+    letter-spacing: 2px;
+  }
+
+  .brand-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .classification {
+    font-size: 9px;
+    margin-top: 2px;
+  }
+
+  .mode-label {
+    font-size: 12px;
+  }
+
+  .summary-text {
+    font-size: 8px;
+    max-width: 180px;
+  }
+
+  .top-right {
+    gap: 2px;
+  }
+
+  .active-style-value {
+    font-size: 13px;
+  }
+
+  .active-style-label {
+    font-size: 8px;
+  }
+
+  .rec-text {
+    font-size: 9px;
+  }
+
+  .orbital-info {
+    font-size: 8px;
+  }
+
+  /* Sidebars — bottom-anchored, horizontal scrolling */
+  .left-sidebar {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 8px;
+    width: auto;
+    max-height: 180px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    z-index: 30;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .left-sidebar .panel {
+    min-width: 140px;
+    max-width: 200px;
+    flex-shrink: 0;
+  }
+
+  .right-sidebar {
+    position: fixed;
+    right: 8px;
+    top: auto;
+    bottom: 8px;
+    width: auto;
+    left: 8px;
+    flex-direction: row;
+    gap: 6px;
+    z-index: 30;
+  }
+
+  .right-sidebar .panel {
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+
+  /* Panels — compact */
+  .panel-header {
+    padding: 6px 10px;
+  }
+
+  .panel-header-title {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .panel-body {
+    padding: 8px;
+  }
+
+  /* Telemetry — bottom left, smaller */
+  .telemetry {
+    bottom: 60px;
+    right: 10px;
+  }
+
+  .telemetry-line {
+    font-size: 9px;
+  }
+
+  /* Flight popup — fit mobile width */
+  .flight-popup-wrapper .maplibregl-popup-content {
+    max-width: 280px !important;
+  }
+
+  .flight-popup {
+    padding: 10px;
+    min-width: auto;
+  }
+
+  .fp-callsign {
+    font-size: 14px;
+  }
+
+  .fp-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .fp-label {
+    font-size: 8px;
+  }
+
+  .fp-value {
+    font-size: 11px;
+  }
+
+  /* Camera popup — fit mobile */
+  .cam-popup-wrapper .maplibregl-popup-content {
+    max-width: 300px !important;
+  }
+
+  .cam-popup {
+    padding: 10px;
+  }
+
+  .cam-player {
+    width: 280px;
+    height: 158px;
+  }
+
+  .cam-player iframe {
+    width: 300px;
+    height: 172px;
+    margin: -7px -10px;
+  }
+
+  .cam-title {
+    font-size: 12px;
+  }
+
+  .cam-city {
+    font-size: 9px;
+  }
+
+  /* Data layers — smaller touch targets */
+  .data-layer-item {
+    padding: 6px 0;
+  }
+
+  .data-layer-name {
+    font-size: 10px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .top-bar {
+    padding: 6px 8px;
+  }
+
+  .brand-title {
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  .brand-subtitle,
+  .classification,
+  .classification-sub {
+    display: none;
+  }
+
+  .mode-label {
+    font-size: 10px;
+  }
+
+  .summary-text {
+    display: none;
+  }
+
+  .active-style-value {
+    font-size: 11px;
+  }
+
+  .orbital-info {
+    display: none;
+  }
+
+  .left-sidebar {
+    max-height: 140px;
+  }
+
+  .cam-player {
+    width: 240px;
+    height: 135px;
+  }
+
+  .cam-player iframe {
+    width: 260px;
+    height: 148px;
+    margin: -6px -10px;
+  }
+
+  .fp-grid {
+    grid-template-columns: 1fr;
+  }
+}

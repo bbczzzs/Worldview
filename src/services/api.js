@@ -452,6 +452,77 @@ const CCTV_LOCATIONS = [
         id: 'iss-1', lat: 0, lng: -30, name: 'Earth from ISS', city: 'NASA',
         streamUrl: 'https://www.youtube.com/embed/vytmBNhc9ig?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
     },
+    // ── MORE Cities ──
+    {
+        id: 'ny-ts', lat: 40.758, lng: -73.985, name: 'Times Square', city: 'New York',
+        streamUrl: 'https://www.youtube.com/embed/rnXIjl_Rzy4?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'ny-sk', lat: 40.748, lng: -73.975, name: 'NYC Skyline', city: 'New York',
+        streamUrl: 'https://www.youtube.com/embed/VGnFLdQW39A?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'akl-1', lat: -36.848, lng: 174.763, name: 'Sky Tower', city: 'Auckland',
+        streamUrl: 'https://www.youtube.com/embed/BQR800Gu28g?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'sd-1', lat: 32.715, lng: -117.161, name: 'Bay View', city: 'San Diego',
+        streamUrl: 'https://www.youtube.com/embed/edz0ux7JClE?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'dv-1', lat: 7.076, lng: 125.613, name: 'City Skyline', city: 'Davao, Philippines',
+        streamUrl: 'https://www.youtube.com/embed/ShyEWcl4Kz4?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    // ── MORE Beaches ──
+    {
+        id: 'vb-1', lat: 33.985, lng: -118.473, name: 'Venice Beach', city: 'Los Angeles',
+        streamUrl: 'https://www.youtube.com/embed/EO_1LWqsCNE?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'md-1', lat: 4.175, lng: 73.509, name: 'Kuredu Island', city: 'Maldives',
+        streamUrl: 'https://www.youtube.com/embed/_BMi3usEwi8?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'pp-1', lat: 21.665, lng: -158.053, name: 'Banzai Pipeline', city: 'Oahu, Hawaii',
+        streamUrl: 'https://www.youtube.com/embed/VI8Wj5EwoRM?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'or-1', lat: 45.214, lng: -123.97, name: 'Cape Kiwanda', city: 'Oregon',
+        streamUrl: 'https://www.youtube.com/embed/S5FRz8m4xWI?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'sb-1', lat: 28.177, lng: -80.592, name: 'Satellite Beach', city: 'Florida',
+        streamUrl: 'https://www.youtube.com/embed/0bv7YxPWRdw?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'si-1', lat: 39.153, lng: -74.693, name: 'Boardwalk', city: 'Sea Isle City, NJ',
+        streamUrl: 'https://www.youtube.com/embed/FYOGiFH60uM?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    // ── MORE Airports ──
+    {
+        id: 'lhr-1', lat: 51.47, lng: -0.454, name: 'Heathrow Runways', city: 'London',
+        streamUrl: 'https://www.youtube.com/embed/YMxabMky18E?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'mia-ap', lat: 25.796, lng: -80.276, name: 'MIA Runway', city: 'Miami',
+        streamUrl: 'https://www.youtube.com/embed/OXeFcz3lEz4?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'mdw-1', lat: 41.786, lng: -87.752, name: 'Midway Airport', city: 'Chicago',
+        streamUrl: 'https://www.youtube.com/embed/67BCsiW-1Io?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'inn-1', lat: 47.26, lng: 11.344, name: 'Alpine Airport', city: 'Innsbruck',
+        streamUrl: 'https://www.youtube.com/embed/bgwIoqEVduM?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'bne-1', lat: -27.384, lng: 153.117, name: 'Brisbane Airport', city: 'Brisbane',
+        streamUrl: 'https://www.youtube.com/embed/tvQHkMGEyEo?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
+    {
+        id: 'tll-1', lat: 59.414, lng: 24.833, name: 'Tallinn Airport', city: 'Estonia',
+        streamUrl: 'https://www.youtube.com/embed/jEhw23X8e8A?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&iv_load_policy=3&disablekb=1'
+    },
 ];
 
 export function getCCTVLocations() {
