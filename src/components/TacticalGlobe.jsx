@@ -67,6 +67,8 @@ export default function TacticalGlobe({
     const [flights, setFlights] = useState([]);
     const [satellites, setSatellites] = useState([]);
     const [cctvs, setCctvs] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
+    const [currentZoom, setCurrentZoom] = useState(1.8);
     const [dataStatus, setDataStatus] = useState({ flights: 'loading', satellites: 'loading' });
     const [mapReady, setMapReady] = useState(false);
     const [selectedFlight, setSelectedFlight] = useState(null);
@@ -213,6 +215,77 @@ export default function TacticalGlobe({
     }, [onDataUpdate]);
 
     useEffect(() => { setCctvs(getCCTVLocations()); }, []);
+
+    // ──── ZOOM TRACKING ────
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        const onMove = () => setCurrentZoom(map.getZoom());
+        map.on('moveend', onMove);
+        map.on('zoomend', onMove);
+        return () => { map.off('moveend', onMove); map.off('zoomend', onMove); };
+    }, [mapReady]);
+
+    // ──── SIMULATED STREET VEHICLES ────
+    const vehiclesRef = useRef([]);
+
+    useEffect(() => {
+        if (!layers.traffic || currentZoom < 14 || !mapRef.current) {
+            setVehicles([]);
+            vehiclesRef.current = [];
+            return;
+        }
+
+        function generateVehicles() {
+            const map = mapRef.current;
+            if (!map) return;
+            const bounds = map.getBounds();
+            const sw = bounds.getSouthWest();
+            const ne = bounds.getNorthEast();
+            const lngSpan = ne.lng - sw.lng;
+            const latSpan = ne.lat - sw.lat;
+            const count = 25;
+            const vehs = [];
+            for (let i = 0; i < count; i++) {
+                const heading = [0, 90, 180, 270][Math.floor(Math.random() * 4)] + (Math.random() * 30 - 15);
+                vehs.push({
+                    id: `VEH-${String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0')}`,
+                    lat: sw.lat + Math.random() * latSpan,
+                    lng: sw.lng + Math.random() * lngSpan,
+                    heading,
+                    speed: 0.00002 + Math.random() * 0.00004, // degrees per tick
+                });
+            }
+            vehiclesRef.current = vehs;
+            setVehicles([...vehs]);
+        }
+
+        // Generate initial set
+        generateVehicles();
+
+        // Animate vehicles every 2 seconds
+        const iv = setInterval(() => {
+            const vehs = vehiclesRef.current;
+            for (const v of vehs) {
+                const rad = (v.heading * Math.PI) / 180;
+                v.lng += Math.sin(rad) * v.speed;
+                v.lat += Math.cos(rad) * v.speed;
+                // Small random drift
+                v.heading += (Math.random() - 0.5) * 8;
+            }
+            setVehicles([...vehs]);
+        }, 2000);
+
+        // Regenerate when panning
+        const map = mapRef.current;
+        const onMove = () => generateVehicles();
+        map.on('moveend', onMove);
+
+        return () => {
+            clearInterval(iv);
+            map.off('moveend', onMove);
+        };
+    }, [layers.traffic, currentZoom >= 14, mapReady]);
 
     // ──── MAP LOAD ────
     const airplaneImgsRef = useRef({}); // Cache all icon images
@@ -397,6 +470,16 @@ export default function TacticalGlobe({
         })),
     }), [layers.flights]);
 
+    // Simulated street vehicles GeoJSON
+    const vehiclesGeo = useMemo(() => ({
+        type: 'FeatureCollection',
+        features: vehicles.map(v => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [v.lng, v.lat] },
+            properties: { id: v.id, heading: v.heading },
+        })),
+    }), [vehicles]);
+
     return (
         <div className="globe-container">
             <MapGL
@@ -492,6 +575,55 @@ export default function TacticalGlobe({
                             minzoom={10}
                             paint={{
                                 'raster-opacity': 0.75,
+                            }}
+                        />
+                    </Source>
+                )}
+
+                {/* ═══════════════════════════════════════
+            VEHICLE TARGETS — simulated moving dots (zoom 14+)
+            ═══════════════════════════════════════ */}
+                {layers.traffic && vehicles.length > 0 && (
+                    <Source id="vehicles" type="geojson" data={vehiclesGeo}>
+                        {/* Outer glow ring */}
+                        <Layer
+                            id="veh-glow"
+                            type="circle"
+                            paint={{
+                                'circle-radius': 12,
+                                'circle-color': '#00f2ff',
+                                'circle-opacity': 0.08,
+                                'circle-blur': 1,
+                            }}
+                        />
+                        {/* Core dot */}
+                        <Layer
+                            id="veh-dot"
+                            type="circle"
+                            paint={{
+                                'circle-radius': 3,
+                                'circle-color': '#00f2ff',
+                                'circle-opacity': 0.9,
+                                'circle-stroke-width': 1,
+                                'circle-stroke-color': 'rgba(0, 242, 255, 0.4)',
+                            }}
+                        />
+                        {/* VEH-XXXX labels */}
+                        <Layer
+                            id="veh-labels"
+                            type="symbol"
+                            layout={{
+                                'text-field': ['get', 'id'],
+                                'text-size': 9,
+                                'text-offset': [0, -1.5],
+                                'text-anchor': 'bottom',
+                                'text-font': ['Open Sans Regular'],
+                                'text-allow-overlap': true,
+                            }}
+                            paint={{
+                                'text-color': 'rgba(0, 242, 255, 0.8)',
+                                'text-halo-color': 'rgba(0, 0, 0, 0.9)',
+                                'text-halo-width': 1,
                             }}
                         />
                     </Source>
