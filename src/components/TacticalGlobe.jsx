@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import MapGL, { Source, Layer, Popup } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
-    fetchLiveFlights, fetchSatellites, getCCTVLocations, getAirports,
+    fetchLiveFlights, fetchSatellites, getCCTVLocations, getAirports, lookupAirport,
     generateFallbackFlights, generateFallbackSatellites
 } from '../services/api';
 
@@ -36,8 +36,19 @@ const MAP_STYLE = {
     glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
 };
 
-// Airplane SVG
-const AIRPLANE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="%23FFCC00"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
+// Aircraft SVG icons — different shapes per category
+const AIRCRAFT_SVGS = {
+    // Heavy wide-body (big wings, larger)
+    heavy: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23FFD700"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+    // Standard jet (medium)
+    jet: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="%23FFCC00"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+    // Regional / turboprop (smaller, lighter)
+    regional: `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="%23FFB800"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+    // Helicopter (rotor shape)
+    helicopter: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="%2300F2FF"><path d="M5 7h14v2H5V7zm3 4h2v6h4v-6h2l-1-2H9l-1 2zm3-9h2v4h-2V2zm-6 5l1.4 1.4L5 9.8l-1.4-1.4L5 7zm14 0l-1.4 1.4-1.4-1.4L19 7z"/><circle cx="12" cy="9" r="2"/></svg>`,
+    // Light / GA (tiny, dimmer)
+    light: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="%23FF9900"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+};
 
 // Heading to compass direction
 function headingToCompass(deg) {
@@ -204,7 +215,7 @@ export default function TacticalGlobe({
     useEffect(() => { setCctvs(getCCTVLocations()); }, []);
 
     // ──── MAP LOAD ────
-    const airplaneImgRef = useRef(null); // Cache the icon image data
+    const airplaneImgsRef = useRef({}); // Cache all icon images
 
     const onMapLoad = useCallback((evt) => {
         const map = evt.target;
@@ -219,30 +230,37 @@ export default function TacticalGlobe({
             });
         } catch (e) { /* fog not supported */ }
 
-        // Helper to add the airplane icon to the map
-        function addAirplaneIcon(mapInstance, imgData) {
-            try {
-                if (!mapInstance.hasImage('airplane-icon')) {
-                    mapInstance.addImage('airplane-icon', imgData);
-                }
-            } catch (e) { /* ignore if map is being destroyed */ }
+        // Load all aircraft category icons
+        const categories = Object.keys(AIRCRAFT_SVGS);
+        let loaded = 0;
+
+        for (const cat of categories) {
+            const iconName = `aircraft-${cat}`;
+            const svg = AIRCRAFT_SVGS[cat];
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                airplaneImgsRef.current[iconName] = img;
+                try {
+                    if (!map.hasImage(iconName)) {
+                        map.addImage(iconName, img);
+                    }
+                } catch (e) { /* ignore */ }
+                loaded++;
+                if (loaded === categories.length) setMapReady(true);
+            };
+            img.onerror = () => {
+                loaded++;
+                if (loaded === categories.length) setMapReady(true);
+            };
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace(/%23/g, '#'));
         }
 
-        // Load airplane icon
-        const img = new Image(24, 24);
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            airplaneImgRef.current = img;
-            addAirplaneIcon(map, img);
-            setMapReady(true);
-        };
-        img.onerror = () => setMapReady(true);
-        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(AIRPLANE_SVG.replace(/%23/g, '#'));
-
-        // Re-add icon whenever MapLibre rebuilds the style (wipes custom images)
+        // Re-add icons whenever MapLibre rebuilds the style
         map.on('styleimagemissing', (e) => {
-            if (e.id === 'airplane-icon' && airplaneImgRef.current) {
-                addAirplaneIcon(map, airplaneImgRef.current);
+            const cached = airplaneImgsRef.current[e.id];
+            if (cached) {
+                try { map.addImage(e.id, cached); } catch (err) { /* ignore */ }
             }
         });
 
@@ -296,6 +314,9 @@ export default function TacticalGlobe({
                 registration: props.registration || '—',
                 aircraftType: props.aircraftType || '—',
                 airline: props.airline || '',
+                depAirport: props.depAirport || '',
+                arrAirport: props.arrAirport || '',
+                category: props.category || 'jet',
             });
         } else if (f.layer.id === 'cctv-dots') {
             setSelectedFlight(null);
@@ -336,6 +357,9 @@ export default function TacticalGlobe({
                 registration: f.registration || '',
                 aircraftType: f.aircraftType || '',
                 airline: f.airline || '',
+                category: f.category || 'jet',
+                depAirport: f.depAirport || '',
+                arrAirport: f.arrAirport || '',
             },
         })),
     }), [flights, layers.flights]);
@@ -409,8 +433,15 @@ export default function TacticalGlobe({
                         id="flight-icons"
                         type="symbol"
                         layout={{
-                            'icon-image': 'airplane-icon',
-                            'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.35, 4, 0.5, 8, 0.8, 12, 1],
+                            'icon-image': ['match', ['get', 'category'],
+                                'heavy', 'aircraft-heavy',
+                                'jet', 'aircraft-jet',
+                                'regional', 'aircraft-regional',
+                                'helicopter', 'aircraft-helicopter',
+                                'light', 'aircraft-light',
+                                'aircraft-jet' // fallback
+                            ],
+                            'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 4, 0.55, 8, 0.85, 12, 1.1],
                             'icon-rotate': ['get', 'heading'],
                             'icon-rotation-alignment': 'map',
                             'icon-allow-overlap': true,
@@ -615,66 +646,88 @@ export default function TacticalGlobe({
                 {/* ═══════════════════════════════════════
             FLIGHT DETAIL POPUP
             ═══════════════════════════════════════ */}
-                {selectedFlight && (
-                    <Popup
-                        latitude={selectedFlight.lat}
-                        longitude={selectedFlight.lng}
-                        onClose={() => setSelectedFlight(null)}
-                        closeOnClick={false}
-                        anchor="bottom"
-                        className="flight-popup-wrapper"
-                    >
-                        <div className="flight-popup">
-                            <div className="fp-header">
-                                <span className="fp-callsign">✈ {selectedFlight.callsign}</span>
-                                <span className={`fp-status ${selectedFlight.status.toLowerCase()}`}>
-                                    {selectedFlight.status}
-                                </span>
+                {selectedFlight && (() => {
+                    const dep = lookupAirport(selectedFlight.depAirport);
+                    const arr = lookupAirport(selectedFlight.arrAirport);
+                    return (
+                        <Popup
+                            latitude={selectedFlight.lat}
+                            longitude={selectedFlight.lng}
+                            onClose={() => setSelectedFlight(null)}
+                            closeOnClick={false}
+                            anchor="bottom"
+                            className="flight-popup-wrapper"
+                        >
+                            <div className="flight-popup">
+                                {/* Header */}
+                                <div className="fp-header">
+                                    <span className="fp-callsign">✈ {selectedFlight.callsign}</span>
+                                    <span className={`fp-status ${selectedFlight.status.toLowerCase()}`}>
+                                        {selectedFlight.status}
+                                    </span>
+                                </div>
+                                {selectedFlight.airline && (
+                                    <div className="fp-airline">{selectedFlight.airline}</div>
+                                )}
+
+                                {/* Route: Departure → Arrival */}
+                                {(selectedFlight.depAirport || selectedFlight.arrAirport) && (
+                                    <div className="fp-route">
+                                        <div className="fp-route-point">
+                                            <span className="fp-route-code">{selectedFlight.depAirport || '???'}</span>
+                                            <span className="fp-route-name">
+                                                {dep ? `${dep.name}` : 'Unknown'}
+                                            </span>
+                                            <span className="fp-route-city">
+                                                {dep ? dep.city : ''}
+                                            </span>
+                                        </div>
+                                        <div className="fp-route-line">
+                                            <span className="fp-route-dash"></span>
+                                            <span className="fp-route-plane">✈</span>
+                                            <span className="fp-route-dash"></span>
+                                        </div>
+                                        <div className="fp-route-point fp-route-arr">
+                                            <span className="fp-route-code">{selectedFlight.arrAirport || '???'}</span>
+                                            <span className="fp-route-name">
+                                                {arr ? `${arr.name}` : 'Unknown'}
+                                            </span>
+                                            <span className="fp-route-city">
+                                                {arr ? arr.city : ''}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Info Grid */}
+                                <div className="fp-grid">
+                                    <div className="fp-item">
+                                        <span className="fp-label">ALTITUDE</span>
+                                        <span className="fp-value">{selectedFlight.altFeet?.toLocaleString() || '—'} ft</span>
+                                    </div>
+                                    <div className="fp-item">
+                                        <span className="fp-label">SPEED</span>
+                                        <span className="fp-value">{selectedFlight.speed}</span>
+                                    </div>
+                                    <div className="fp-item">
+                                        <span className="fp-label">HEADING</span>
+                                        <span className="fp-value">{Math.round(selectedFlight.heading)}° {headingToCompass(selectedFlight.heading)}</span>
+                                    </div>
+                                    <div className="fp-item">
+                                        <span className="fp-label">AIRCRAFT</span>
+                                        <span className="fp-value">{selectedFlight.aircraftType || '—'}</span>
+                                    </div>
+                                    {selectedFlight.registration && (
+                                        <div className="fp-item fp-wide">
+                                            <span className="fp-label">REGISTRATION</span>
+                                            <span className="fp-value">{selectedFlight.registration}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            {selectedFlight.airline && (
-                                <div className="fp-airline">{selectedFlight.airline}</div>
-                            )}
-                            <div className="fp-grid">
-                                <div className="fp-item fp-wide">
-                                    <span className="fp-label">AIRCRAFT</span>
-                                    <span className="fp-value">{selectedFlight.aircraftType !== '—' ? selectedFlight.aircraftType : 'Unknown'}</span>
-                                </div>
-                                <div className="fp-item fp-wide">
-                                    <span className="fp-label">REGISTRATION</span>
-                                    <span className="fp-value">{selectedFlight.registration}</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">ALTITUDE</span>
-                                    <span className="fp-value">{selectedFlight.altFeet?.toLocaleString() || '—'} ft</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">SPEED</span>
-                                    <span className="fp-value">{selectedFlight.speed}</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">HEADING</span>
-                                    <span className="fp-value">{Math.round(selectedFlight.heading)}° {headingToCompass(selectedFlight.heading)}</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">FL</span>
-                                    <span className="fp-value">{selectedFlight.flightLevel}</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">V/S</span>
-                                    <span className="fp-value">{selectedFlight.verticalRate > 0 ? '+' : ''}{Math.round(selectedFlight.verticalRate * 196.85)} ft/min</span>
-                                </div>
-                                <div className="fp-item">
-                                    <span className="fp-label">SQUAWK</span>
-                                    <span className="fp-value">{selectedFlight.squawk}</span>
-                                </div>
-                                <div className="fp-item fp-wide">
-                                    <span className="fp-label">COORDS</span>
-                                    <span className="fp-value">{selectedFlight.lat.toFixed(4)}, {selectedFlight.lng.toFixed(4)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </Popup>
-                )}
+                        </Popup>
+                    );
+                })()}
 
                 {/* ═══════════════════════════════════════
             LIVE CAM POPUP

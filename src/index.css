@@ -1397,9 +1397,80 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 11px;
   color: rgba(255, 184, 0, 0.7);
   letter-spacing: 0.5px;
-  margin-bottom: 6px;
-  padding-bottom: 6px;
+  padding: 0 14px 8px;
   border-bottom: 1px solid rgba(255, 184, 0, 0.1);
+}
+
+/* ── Route: Departure → Arrival ── */
+.fp-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 184, 0, 0.1);
+}
+
+.fp-route-point {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1;
+}
+
+.fp-route-arr {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.fp-route-code {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFCC00;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+  line-height: 1;
+}
+
+.fp-route-name {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: rgba(255, 184, 0, 0.6);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.fp-route-city {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(0, 242, 255, 0.6);
+  letter-spacing: 0.5px;
+}
+
+.fp-route-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.fp-route-dash {
+  width: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 184, 0, 0.4), transparent);
+}
+
+.fp-route-plane {
+  font-size: 12px;
+  color: #00f2ff;
+  filter: drop-shadow(0 0 4px rgba(0, 242, 255, 0.5));
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1924,13 +1995,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
     top: auto;
     bottom: 8px;
     width: auto;
-    max-height: 180px;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
+    max-height: 220px;
+    flex-direction: column;
+    gap: 0;
     z-index: 30;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .left-sidebar .panel {
@@ -1980,31 +2050,77 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 9px;
   }
 
-  /* Flight popup — fit mobile width */
+  /* Flight popup — compact mobile */
   .flight-popup-wrapper .maplibregl-popup-content {
-    max-width: 280px !important;
+    max-width: 260px !important;
   }
 
   .flight-popup {
-    padding: 10px;
+    padding: 0;
     min-width: auto;
   }
 
+  .fp-header {
+    padding: 8px 10px;
+  }
+
   .fp-callsign {
+    font-size: 12px;
+  }
+
+  .fp-status {
+    font-size: 8px;
+    padding: 1px 6px;
+  }
+
+  .fp-airline {
+    font-size: 10px;
+    padding: 0 10px 6px;
+  }
+
+  .fp-route {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+
+  .fp-route-code {
     font-size: 14px;
+    letter-spacing: 1px;
+  }
+
+  .fp-route-name {
+    font-size: 7px;
+    max-width: 70px;
+  }
+
+  .fp-route-city {
+    font-size: 8px;
+  }
+
+  .fp-route-dash {
+    width: 12px;
+  }
+
+  .fp-route-plane {
+    font-size: 10px;
   }
 
   .fp-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 6px;
+    gap: 1px;
+    padding: 4px;
+  }
+
+  .fp-item {
+    padding: 4px 6px;
   }
 
   .fp-label {
-    font-size: 8px;
+    font-size: 7px;
   }
 
   .fp-value {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   /* Camera popup — fit mobile */

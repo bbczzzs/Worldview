@@ -46,6 +46,46 @@ function decodeAirline(callsign) {
     return AIRLINES[prefix] || '';
 }
 
+// Aircraft type → visual category for different map icons
+const HEAVY_TYPES = new Set([
+    'A332', 'A333', 'A338', 'A339', 'A342', 'A343', 'A345', 'A346',
+    'A359', 'A35K', 'A380', 'A388',
+    'B744', 'B748', 'B74S', 'B752', 'B753', 'B762', 'B763', 'B764',
+    'B772', 'B773', 'B77L', 'B77W', 'B788', 'B789', 'B78X',
+    'C17', 'AN12', 'AN24', 'IL76', 'IL96', 'MD11',
+]);
+const REGIONAL_TYPES = new Set([
+    'E170', 'E175', 'E190', 'E195', 'E75L', 'E75S',
+    'CRJ2', 'CRJ7', 'CRJ9', 'CRJX',
+    'AT43', 'AT45', 'AT72', 'AT76', 'ATR', 'DH8A', 'DH8B', 'DH8C', 'DH8D',
+    'SF34', 'JS41', 'B190', 'BE1900', 'SW4', 'F50', 'F70',
+]);
+const HELI_TYPES = new Set([
+    'EC35', 'EC45', 'EC55', 'EC75', 'H125', 'H130', 'H135', 'H145', 'H155', 'H160',
+    'H175', 'H215', 'H225', 'AS32', 'AS50', 'AS55', 'AS65',
+    'B06', 'B06T', 'B105', 'B212', 'B214', 'B407', 'B412', 'B429', 'B430',
+    'S76', 'S92', 'R22', 'R44', 'R66', 'A109', 'A119', 'A139', 'A169', 'A189',
+    'UH1', 'UH60', 'AH64', 'CH47', 'MI8', 'MI17', 'MI24', 'MI26',
+]);
+const LIGHT_TYPES = new Set([
+    'C150', 'C152', 'C172', 'C182', 'C206', 'C208', 'C210', 'C310', 'C340', 'C402', 'C414', 'C421', 'C425',
+    'BE33', 'BE35', 'BE36', 'BE55', 'BE58', 'BE9L', 'BE20', 'BE30', 'BE40',
+    'P28A', 'P28B', 'P28R', 'P28T', 'P46T', 'PA24', 'PA30', 'PA31', 'PA32', 'PA34', 'PA44', 'PA46',
+    'DA40', 'DA42', 'DA62', 'SR20', 'SR22', 'TBM7', 'TBM8', 'TBM9', 'PC12', 'PC24',
+    'GLID', 'ULAC',
+]);
+
+function classifyAircraft(icaoType) {
+    if (!icaoType) return 'jet';
+    const t = icaoType.toUpperCase();
+    if (HELI_TYPES.has(t)) return 'helicopter';
+    if (HEAVY_TYPES.has(t)) return 'heavy';
+    if (REGIONAL_TYPES.has(t)) return 'regional';
+    if (LIGHT_TYPES.has(t)) return 'light';
+    // Default: if starts with A3/A2/B7/B73 → jet, else jet
+    return 'jet';
+}
+
 /**
  * Fetch live flights
  * Production: /api/flights (Vercel serverless cache — shared across all visitors)
@@ -131,7 +171,7 @@ export async function fetchLiveFlights() {
                 registration: acReg,
                 aircraftType: acIcaoCode,
                 aircraftDesc: '',
-                category: '',
+                category: classifyAircraft(acIcaoCode),
                 flightLevel: altFt ? `FL${Math.round(altFt / 100)}` : '—',
                 verticalRate: vSpeed ? vSpeed / 60 : 0,
                 squawk,
@@ -529,6 +569,12 @@ const AIRPORTS = [
 
 export function getAirports() {
     return AIRPORTS;
+}
+
+/** Look up airport info by IATA code */
+export function lookupAirport(iata) {
+    if (!iata) return null;
+    return AIRPORTS.find(a => a.iata === iata.toUpperCase()) || null;
 }
 
 // ══════════════════════════════════════════════════════
