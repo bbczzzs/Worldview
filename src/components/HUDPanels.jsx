@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 /* ── SVG Icons ── */
 const ChevronDown = ({ className }) => (
@@ -314,36 +314,194 @@ export function PanopticPanel({ panoptic, onPanopticChange }) {
 }
 
 /* ══════════════════════════════════════════════════════
-   SEARCH BAR
+   SEARCH BAR — Geocoding with Nominatim (OpenStreetMap)
    ══════════════════════════════════════════════════════ */
-export function SearchBar() {
+export function SearchBar({ onFlyTo }) {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const debounceRef = useRef(null);
+    const wrapperRef = useRef(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Debounced geocoding search
+    const handleSearch = useCallback((value) => {
+        setQuery(value);
+        setActiveIndex(-1);
+
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+
+        if (value.trim().length < 2) {
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+
+        setIsLoading(true);
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?` +
+                    `q=${encodeURIComponent(value)}&format=json&limit=8&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                if (!res.ok) throw new Error('Geocoding failed');
+                const data = await res.json();
+
+                const mapped = data.map((item) => {
+                    const addr = item.address || {};
+                    const city = addr.city || addr.town || addr.village || addr.hamlet || '';
+                    const state = addr.state || '';
+                    const country = addr.country || '';
+                    const subtitle = [city, state, country].filter(Boolean).join(', ');
+
+                    return {
+                        id: item.place_id,
+                        name: item.display_name.split(',')[0],
+                        subtitle: subtitle || item.display_name,
+                        lat: parseFloat(item.lat),
+                        lng: parseFloat(item.lon),
+                        type: item.type,
+                        importance: item.importance,
+                    };
+                });
+
+                setResults(mapped);
+                setIsOpen(mapped.length > 0);
+            } catch (err) {
+                console.warn('[WORLDVIEW] Geocoding error:', err);
+                setResults([]);
+            } finally {
+                setIsLoading(false);
+            }
+        }, 400);
+    }, []);
+
+    // Select a result
+    const handleSelect = useCallback((result) => {
+        setQuery(result.name);
+        setIsOpen(false);
+        setResults([]);
+
+        // Determine zoom level based on result type
+        let zoom = 10;
+        if (['country', 'state', 'region'].includes(result.type)) zoom = 5;
+        else if (['city', 'town'].includes(result.type)) zoom = 11;
+        else if (['village', 'hamlet', 'suburb'].includes(result.type)) zoom = 13;
+        else if (['building', 'house', 'address'].includes(result.type)) zoom = 16;
+
+        if (onFlyTo) {
+            onFlyTo({ lat: result.lat, lng: result.lng, zoom, name: result.name });
+        }
+    }, [onFlyTo]);
+
+    // Keyboard navigation
+    const handleKeyDown = (e) => {
+        if (!isOpen || results.length === 0) {
+            if (e.key === 'Enter' && query.trim().length >= 2) {
+                handleSearch(query);
+            }
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex((prev) => Math.min(prev + 1, results.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIndex >= 0 && activeIndex < results.length) {
+                handleSelect(results[activeIndex]);
+            } else if (results.length > 0) {
+                handleSelect(results[0]);
+            }
+        } else if (e.key === 'Escape') {
+            setIsOpen(false);
+        }
+    };
+
+    // Get icon for result type
+    const getTypeIcon = (type) => {
+        switch (type) {
+            case 'country': return '🌍';
+            case 'state': case 'region': return '🗺️';
+            case 'city': case 'town': return '🏙️';
+            case 'village': case 'hamlet': return '🏘️';
+            case 'island': return '🏝️';
+            case 'peak': case 'mountain': return '⛰️';
+            case 'river': case 'lake': case 'ocean': return '🌊';
+            case 'airport': case 'aerodrome': return '✈️';
+            default: return '📍';
+        }
+    };
+
     return (
-        <div className="panel" style={{ padding: '8px 12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2">
+        <div className="search-bar-wrapper" ref={wrapperRef}>
+            <div className="search-bar-container">
+                <svg className="search-bar-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input
                     type="text"
-                    placeholder="CCTV MESH"
-                    style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '11px',
-                        letterSpacing: '1px',
-                        outline: 'none',
-                        width: '100%',
-                    }}
+                    className="search-bar-input"
+                    placeholder="SEARCH LOCATION..."
+                    value={query}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => results.length > 0 && setIsOpen(true)}
                 />
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" style={{ cursor: 'pointer' }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+                {isLoading && (
+                    <div className="search-bar-spinner" />
+                )}
+                {query && !isLoading && (
+                    <button
+                        className="search-bar-clear"
+                        onClick={() => { setQuery(''); setResults([]); setIsOpen(false); }}
+                    >
+                        ✕
+                    </button>
+                )}
             </div>
+
+            {/* Dropdown Results */}
+            {isOpen && results.length > 0 && (
+                <div className="search-results-dropdown">
+                    {results.map((r, i) => (
+                        <div
+                            key={r.id}
+                            className={`search-result-item ${i === activeIndex ? 'active' : ''}`}
+                            onClick={() => handleSelect(r)}
+                            onMouseEnter={() => setActiveIndex(i)}
+                        >
+                            <span className="search-result-icon">{getTypeIcon(r.type)}</span>
+                            <div className="search-result-info">
+                                <span className="search-result-name">{r.name}</span>
+                                <span className="search-result-subtitle">{r.subtitle}</span>
+                            </div>
+                            <span className="search-result-coords">
+                                {r.lat.toFixed(2)}, {r.lng.toFixed(2)}
+                            </span>
+                        </div>
+                    ))}
+                    <div className="search-result-footer">
+                        NOMINATIM • OPENSTREETMAP
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

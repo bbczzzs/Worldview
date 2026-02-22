@@ -46,7 +46,7 @@ function headingToCompass(deg) {
 }
 
 export default function TacticalGlobe({
-    activeFilter, layers, onGlobeReady, selectedCity, onDataUpdate
+    activeFilter, layers, onGlobeReady, selectedCity, searchTarget, onDataUpdate
 }) {
     const mapRef = useRef();
     const flightsMapRef = useRef(new Map()); // PERSISTENT MAP: id → flight object
@@ -258,6 +258,17 @@ export default function TacticalGlobe({
             duration: 2000,
         });
     }, [selectedCity]);
+
+    // ──── FLY TO SEARCH TARGET ────
+    useEffect(() => {
+        if (!mapRef.current || !searchTarget) return;
+        mapRef.current.flyTo({
+            center: [searchTarget.lng, searchTarget.lat],
+            zoom: searchTarget.zoom || 10,
+            duration: 2500,
+            essential: true,
+        });
+    }, [searchTarget]);
 
     // ──── CLICK ON FLIGHT OR CCTV ────
     const onMapClick = useCallback((evt) => {

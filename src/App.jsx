@@ -78,6 +78,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('Normal');
   const [selectedCity, setSelectedCity] = useState(null);
+  const [searchTarget, setSearchTarget] = useState(null);
 
   const [layers, setLayers] = useState({
     flights: true,
@@ -123,6 +124,10 @@ function App() {
 
   const handleGlobeReady = useCallback(() => { }, []);
 
+  const handleSearchFlyTo = useCallback((location) => {
+    setSearchTarget(location);
+  }, []);
+
   const getSummaryText = () => {
     const f = activeFilter.toUpperCase();
     const c = selectedCity ? selectedCity.name.toUpperCase() : 'GLOBAL';
@@ -163,6 +168,7 @@ function App() {
           layers={layers}
           onGlobeReady={handleGlobeReady}
           selectedCity={selectedCity}
+          searchTarget={searchTarget}
           onDataUpdate={handleDataUpdate}
         />
       </div>
@@ -207,9 +213,13 @@ function App() {
           </div>
         </div>
 
+        {/* SEARCH BAR — own container for mobile repositioning */}
+        <div className="search-bar-position">
+          <SearchBar onFlyTo={handleSearchFlyTo} />
+        </div>
+
         {/* LEFT SIDEBAR */}
         <div className="left-sidebar">
-          <SearchBar />
           <DataLayersPanel layers={layers} onToggle={handleLayerToggle} stats={stats} />
         </div>
 
