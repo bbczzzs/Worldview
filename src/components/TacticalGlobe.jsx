@@ -79,14 +79,16 @@ export default function TacticalGlobe({
     const [selectedQuake, setSelectedQuake] = useState(null);
 
     // ══════════════════════════════════════════════════════
-    // 🏆 SMART HYBRID ENGINE — PERSISTENT REGISTRY
-    // Snapshot every 60s → MERGE into registry → interpolate 1s
-    // Aircraft persist across snapshots. Only removed if stale 3min+
+    // 🏆 DUAL-ENGINE FLIGHT SYSTEM — PERSISTENT REGISTRY
+    // Primary: adsb.lol (real-time ADS-B, ~0.1s delay) every 10s
+    // Secondary: Aviation Edge (enrichment) every 2min background
+    // Interpolate 1s between snapshots for smooth movement
     // ══════════════════════════════════════════════════════
 
-    const STALE_MS = 300000; // 5 minutes — survive failed snapshots
+    const STALE_MS = 45000; // 45s — tighter window since we get updates every 10s
+    const lastInterpRef = useRef(Date.now()); // Track real elapsed time for interpolation
 
-    // ──── FETCH SNAPSHOT & MERGE (every 60s) ────
+    // ──── FETCH SNAPSHOT & MERGE (every 10s — adsb.lol has no rate limits) ────
     useEffect(() => {
         let cancelled = false;
         let hasRealData = false;
@@ -175,18 +177,21 @@ export default function TacticalGlobe({
         }
 
         fetchSnapshot();
-        const iv = setInterval(fetchSnapshot, 90000); // 90s — Aviation Edge
+        const iv = setInterval(fetchSnapshot, 10000); // 10s — adsb.lol is free, no rate limits
         return () => { cancelled = true; clearInterval(iv); };
     }, [onDataUpdate]);
 
-    // ──── INTERPOLATE every 1s ────
+    // ──── INTERPOLATE every 1s (time-delta based) ────
     useEffect(() => {
         const iv = setInterval(() => {
             const cur = flightsRef.current;
             if (!cur.length) return;
+            const now = Date.now();
+            const dtSec = Math.min((now - lastInterpRef.current) / 1000, 3); // cap at 3s to prevent jumps
+            lastInterpRef.current = now;
             for (const f of cur) {
                 if (f.heading == null || !f.speedMS) continue;
-                const dLat = f.speedMS / 111000;
+                const dLat = (f.speedMS * dtSec) / 111000;
                 const rad = (f.heading * Math.PI) / 180;
                 f.lat = Math.max(-85, Math.min(85, f.lat + Math.cos(rad) * dLat));
                 f.lng = ((f.lng + Math.sin(rad) * dLat) + 540) % 360 - 180;

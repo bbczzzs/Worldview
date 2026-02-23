@@ -86,42 +86,138 @@ function classifyAircraft(icaoType) {
     return 'jet';
 }
 
+// ══════════════════════════════════════════════════════
+//  DUAL-ENGINE FLIGHT SYSTEM
+//  Primary: adsb.lol (FREE, real-time ADS-B, ~0.1s delay, no key)
+//  Secondary: Aviation Edge (paid, ~60s delay, has airline/route enrichment)
+//  Merger: ICAO24 hex dedup → adsb.lol position wins, AE enriches metadata
+// ══════════════════════════════════════════════════════
+
+// ── Aviation Edge enrichment cache (route/airline info — updated slowly) ──
+let _aeEnrichment = new Map(); // icao24 → { airline, depAirport, arrAirport }
+let _aeLastFetch = 0;
+const AE_ENRICH_TTL = 120000; // Refresh enrichment data every 2 minutes
+
 /**
- * Fetch live flights
- * Production: /api/flights (Vercel serverless cache — shared across all visitors)
- * Dev: /proxy/aviationedge direct (via Vite proxy)
+ * Fetch from adsb.lol — PRIMARY source (real-time ADS-B)
+ * Free, no API key, no rate limits, CORS-enabled
+ * Returns global aircraft with sub-second freshness
  */
-export async function fetchLiveFlights() {
+async function fetchAdsbLol() {
+    try {
+        // Use proxy to bypass CORS (Vite proxy in dev, Vercel rewrite in prod)
+        const url = '/proxy/adsblol/v2/lat/0/lon/0/dist/18000';
+        const res = await fetch(
+            url,
+            { signal: AbortSignal.timeout(20000) }
+        );
+        if (!res.ok) {
+            console.warn(`[WORLDVIEW] adsb.lol HTTP ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        const ac = data.ac || data.aircraft || [];
+        if (!Array.isArray(ac)) return null;
+
+        const flights = [];
+        for (const f of ac) {
+            const lat = parseFloat(f.lat);
+            const lng = parseFloat(f.lon);
+            if (isNaN(lat) || isNaN(lng)) continue;
+            if (lat === 0 && lng === 0) continue;
+
+            const hex = (f.hex || '').toLowerCase().trim();
+            if (!hex) continue;
+
+            // Handle altitude — alt_baro can be "ground" string
+            const rawAlt = f.alt_baro;
+            if (rawAlt === 'ground' || rawAlt === 'Ground') continue; // Skip ground aircraft
+            const altFt = parseFloat(rawAlt) || parseFloat(f.alt_geom) || 0;
+            if (altFt <= 0) continue; // Skip aircraft with no altitude
+
+            const heading = parseFloat(f.track) || parseFloat(f.true_heading) || parseFloat(f.mag_heading) || 0;
+            const gs = parseFloat(f.gs) || 0; // ground speed in knots
+            const vRate = parseFloat(f.baro_rate) || parseFloat(f.geom_rate) || 0;
+            const callsign = (f.flight || '').trim();
+            const reg = (f.r || '').trim();
+            const acType = (f.t || '').trim();
+            const squawk = f.squawk || '—';
+            const category = f.category || '';
+
+            // Determine flight status
+            const flightStatus = vRate > 300 ? 'CLIMBING' : vRate < -300 ? 'DESCENDING' : 'CRUISING';
+
+            // Determine aircraft visual category
+            let visCategory = classifyAircraft(acType);
+            // Also check ADS-B category field (A1=light, A3=large, A5=heavy)
+            if (category === 'A5' || category === 'A4') visCategory = 'heavy';
+            else if (category === 'A1') visCategory = 'light';
+            else if (category === 'A7' || category === 'B2') visCategory = 'helicopter';
+
+            // Lookup enrichment from Aviation Edge (airline name, route)
+            const enrichment = _aeEnrichment.get(hex) || {};
+
+            flights.push({
+                id: hex,
+                callsign: callsign || '—',
+                airline: enrichment.airline || decodeAirline(callsign) || '',
+                lat,
+                lng,
+                alt: Math.max(0.005, altFt / 10000000),
+                altMeters: altFt * 0.3048,
+                altFeet: altFt,
+                speed: gs ? `${Math.round(gs)} kts` : '—',
+                speedKts: gs || 0,
+                heading,
+                country: f.origin_country || '',
+                registration: reg,
+                aircraftType: acType,
+                aircraftDesc: '',
+                category: visCategory,
+                flightLevel: altFt ? `FL${Math.round(altFt / 100)}` : '—',
+                verticalRate: vRate ? vRate / 60 : 0,
+                squawk,
+                geoAlt: altFt,
+                status: flightStatus,
+                depAirport: enrichment.depAirport || '',
+                arrAirport: enrichment.arrAirport || '',
+                _source: 'adsb.lol',
+            });
+        }
+
+        console.log(`[WORLDVIEW] ✅ ${flights.length} flights from adsb.lol (real-time ADS-B)`);
+        return flights.length > 0 ? flights : null;
+    } catch (err) {
+        console.warn('[WORLDVIEW] adsb.lol error:', err.message);
+        return null;
+    }
+}
+
+/**
+ * Fetch from Aviation Edge — SECONDARY source (enrichment + fallback)
+ * Paid API, ~60s delay, but has airline names and route info
+ */
+async function fetchAviationEdge() {
     try {
         const isDev = import.meta.env.DEV;
         let url;
 
         if (isDev) {
-            // Local dev — direct proxy (API key from .env)
             const key = import.meta.env.VITE_AVIATION_EDGE_KEY;
-            if (!key) {
-                console.warn('[WORLDVIEW] No Aviation Edge API key in .env');
-                return null;
-            }
+            if (!key) return null;
             url = `/proxy/aviationedge/v2/public/flights?key=${key}&limit=30000`;
         } else {
-            // Production — cached serverless function (API key stays server-side)
             url = '/api/flights';
         }
 
-        const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        const res = await fetch(url, {
+            signal: AbortSignal.timeout(20000),
+            cache: 'no-store',
+        });
 
-        if (!res.ok) {
-            console.error(`[WORLDVIEW] Flights HTTP ${res.status}`);
-            return null;
-        }
-
+        if (!res.ok) return null;
         const data = await res.json();
-
-        if (!Array.isArray(data)) {
-            console.warn('[WORLDVIEW] Aviation Edge returned non-array:', data);
-            return null;
-        }
+        if (!Array.isArray(data)) return null;
 
         const flights = [];
         for (const f of data) {
@@ -145,20 +241,22 @@ export async function fetchLiveFlights() {
 
             const depIata = (f.departure || {}).iataCode || '';
             const arrIata = (f.arrival || {}).iataCode || '';
-            const acIcao24 = (f.aircraft || {}).icao24 || '';
+            const acIcao24 = ((f.aircraft || {}).icao24 || '').toLowerCase().trim();
             const acReg = (f.aircraft || {}).regNumber || '';
             const acIcaoCode = (f.aircraft || {}).icaoCode || '';
-
-            const status = f.status || '';
             const squawk = (f.system || {}).squawk || '—';
 
-            // Determine flight status from vertical speed
             const flightStatus = vSpeed > 100 ? 'CLIMBING' : vSpeed < -100 ? 'DESCENDING' : 'CRUISING';
 
+            // Store enrichment data for adsb.lol merger
+            if (acIcao24 && (airline || depIata || arrIata)) {
+                _aeEnrichment.set(acIcao24, { airline, depAirport: depIata, arrAirport: arrIata });
+            }
+
             flights.push({
-                id: acIcao24 || `${callsign}-${lat.toFixed(2)}`,
+                id: acIcao24 || `ae-${callsign}-${lat.toFixed(2)}`,
                 callsign: callsign || '—',
-                airline: airline,
+                airline,
                 lat,
                 lng,
                 alt: Math.max(0.005, altFt / 10000000),
@@ -179,15 +277,49 @@ export async function fetchLiveFlights() {
                 status: flightStatus,
                 depAirport: depIata,
                 arrAirport: arrIata,
+                _source: 'aviation-edge',
             });
         }
 
-        console.log(`[WORLDVIEW] ✅ ${flights.length} flights from Aviation Edge`);
+        console.log(`[WORLDVIEW] ✅ ${flights.length} flights from Aviation Edge (enrichment)`);
         return flights.length > 0 ? flights : null;
     } catch (err) {
-        console.error('[WORLDVIEW] Aviation Edge fetch error:', err);
+        console.warn('[WORLDVIEW] Aviation Edge error:', err.message);
         return null;
     }
+}
+
+/**
+ * MAIN ENTRY — Dual-engine merger
+ * 1. adsb.lol = PRIMARY (real-time positions, refreshed every 10s)
+ * 2. Aviation Edge = ENRICHMENT (airline/route data, refreshed every 2min)
+ * 3. Merge: adsb.lol position wins, AE fills in airline names + routes
+ */
+export async function fetchLiveFlights() {
+    // Always try adsb.lol first (primary, real-time)
+    const adsbData = await fetchAdsbLol();
+
+    // Refresh Aviation Edge enrichment data in background (every 2 min)
+    const now = Date.now();
+    if (now - _aeLastFetch > AE_ENRICH_TTL) {
+        _aeLastFetch = now;
+        // Fire and forget — don't block the real-time data
+        fetchAviationEdge().then(aeData => {
+            if (aeData) {
+                console.log(`[WORLDVIEW] 🔗 Aviation Edge enrichment updated (${_aeEnrichment.size} aircraft enriched)`);
+            }
+        }).catch(() => { });
+    }
+
+    // If adsb.lol succeeded, return it (with any available enrichment already applied)
+    if (adsbData) return adsbData;
+
+    // Fallback: If adsb.lol is down, use Aviation Edge directly
+    console.warn('[WORLDVIEW] adsb.lol unavailable, falling back to Aviation Edge...');
+    const aeData = await fetchAviationEdge();
+    if (aeData) return aeData;
+
+    return null;
 }
 
 // ══════════════════════════════════════════════════════

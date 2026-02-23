@@ -13,6 +13,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/proxy\/aviationedge/, ''),
         timeout: 20000,
       },
+      // Proxy adsb.lol API to bypass CORS
+      '/proxy/adsblol': {
+        target: 'https://api.adsb.lol',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy\/adsblol/, ''),
+        timeout: 25000,
+      },
     },
   },
 })

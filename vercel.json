@@ -3,6 +3,10 @@
         {
             "source": "/proxy/aviationedge/:path*",
             "destination": "https://aviation-edge.com/:path*"
+        },
+        {
+            "source": "/proxy/adsblol/:path*",
+            "destination": "https://api.adsb.lol/:path*"
         }
     ]
 }
